@@ -1,7 +1,6 @@
 from pathlib import Path
 import pandas as pd
 from transform.process_single_zip import process_single_zip
-# from Backend.transform.process_single_zip import process_single_zip
 
 # ==========================================================
 # PATHS
@@ -27,7 +26,7 @@ def run_batch():
     for zip_path in zip_files:
 
         base_name = zip_path.stem.replace("_form13f", "")
-        clean_filename = f"{base_name}_clean_df.csv"
+        clean_filename = f"{base_name}_clean_df.parquet"
         clean_path = CLEAN_DIR / clean_filename
 
         # Skip if already processed
@@ -37,47 +36,12 @@ def run_batch():
 
         print(f"Processing {zip_path.name}...")
 
-        clean_df = process_single_zip(zip_path)
+        clean_df = process_single_zip(zip_path, TEMP_DIR)
+        clean_df.to_parquet(clean_path, index=False)
 
-        # Save individual cleaned file
-        clean_df.to_csv(clean_path, index=False)
-
-        print(f"Saved cleaned file → {clean_filename}")
-
-        # Append to master
-        append_to_master(clean_df)
+        print(f"Saved {clean_filename}")
 
     print("Batch processing complete.")
-
-# ==========================================================
-# MASTER APPEND FUNCTION
-# ==========================================================
-
-def append_to_master(new_df: pd.DataFrame):
-
-    if MASTER_PATH.exists():
-        master_df = pd.read_parquet(MASTER_PATH)
-
-        # Prevent duplicate (CIK, PERIODOFREPORT, CUSIP)
-        combined = pd.concat([master_df, new_df], ignore_index=True)
-
-        combined = combined.drop_duplicates(
-            subset=["CIK", "PERIODOFREPORT", "CUSIP"],
-            keep="last"
-        )
-
-    else:
-        combined = new_df
-
-    combined.to_parquet(MASTER_PATH, index=False)
-
-    print("Master dataset updated.")
-
-clean_df = process_single_zip(zip_path, TEMP_DIR)
-
-# ==========================================================
-# ENTRY POINT
-# ==========================================================
 
 if __name__ == "__main__":
     run_batch()

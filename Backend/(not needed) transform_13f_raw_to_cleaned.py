@@ -112,8 +112,8 @@ def process_single_zip(zip_path: Path) -> pd.DataFrame:
     df["VALUE"] = pd.to_numeric(df["VALUE"], errors="coerce")
     df["TABLEVALUETOTAL"] = pd.to_numeric(df["TABLEVALUETOTAL"], errors="coerce")
 
-    df.loc[df["PERIODOFREPORT"] < cutoff, "VALUE"] *= 1000
-    df.loc[df["PERIODOFREPORT"] < cutoff, "TABLEVALUETOTAL"] *= 1000
+    df.loc[df["FILING_DATE"] < cutoff, "VALUE"] *= 1000
+    df.loc[df["FILING_DATE"] < cutoff, "TABLEVALUETOTAL"] *= 1000
 
     df["weight"] = df["VALUE"] / df["TABLEVALUETOTAL"]
 
