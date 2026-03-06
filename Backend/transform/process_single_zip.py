@@ -11,10 +11,7 @@ def process_single_zip(zip_path: Path, temp_dir: Path) -> pd.DataFrame:
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall(extract_path)
 
-    # submission = pd.read_csv(extract_path / "SUBMISSION.tsv", sep="\t")
     coverpage = pd.read_csv(extract_path / "COVERPAGE.tsv", sep="\t")
-    # summarypage = pd.read_csv(extract_path / "SUMMARYPAGE.tsv", sep="\t")
-    # infotable = pd.read_csv(extract_path / "INFOTABLE.tsv", sep="\t")
     infotable = pd.read_csv(
         extract_path / "INFOTABLE.tsv",
         sep="\t",
@@ -140,13 +137,11 @@ def process_single_zip(zip_path: Path, temp_dir: Path) -> pd.DataFrame:
         "PERIODOFREPORT",
         "FILING_DATE",
         "SUBMISSIONTYPE",
-        "ISAMENDMENT",
         "TABLEVALUETOTAL",
         "TABLEENTRYTOTAL",
         "ISCONFIDENTIALOMITTED",
         "NAMEOFISSUER",
         "CUSIP",
-        "TITLEOFCLASS",
         "VALUE",
         "SSHPRNAMT",
         "weight"
