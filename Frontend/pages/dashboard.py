@@ -7,14 +7,6 @@ import numpy as np
 # -----------------------------
 st.set_page_config(layout="wide")
 st.title("Top Institutions")
-st.markdown("""
-<style>
-.stApp {
-    background-color: black;
-    color: #ccc;
-}
-</style>
-""", unsafe_allow_html=True)
 
 # -----------------------------
 # Dummy data
