@@ -16,7 +16,6 @@ import gc
 # Process single zip file
 # ==========================================================
 def process_single_zip(zip_path: Path, temp_dir: Path):
-    # , whitelist_ciks: set) -> pd.DataFrame:    
 
     extract_path = temp_dir / "temp_extract"
 
@@ -99,10 +98,26 @@ def process_single_zip(zip_path: Path, temp_dir: Path):
         ["CIK", "PERIODOFREPORT", "FILING_DATE", "ACCESSION_NUMBER"]
     )
 
+    def choose_filing(group):
+
+        within_45 = group[group["filing_delay_days"] <= 45]
+
+        if not within_45.empty:
+            # take latest filing within 45 days
+            return within_45.iloc[-1]
+        else:
+            # if none filed within 45 days, take earliest filing
+            return group.iloc[0]
+
+    submission["filing_delay_days"] = (
+        submission["FILING_DATE"] - submission["PERIODOFREPORT"]
+    ).dt.days
+
     submission = (
         submission
-        .groupby(["CIK", "PERIODOFREPORT"], as_index=False)
-        .tail(1)
+        .groupby(["CIK", "PERIODOFREPORT"], group_keys=False)
+        .apply(choose_filing)
+        .reset_index(drop=True)
     )
 
     # Merge summary
