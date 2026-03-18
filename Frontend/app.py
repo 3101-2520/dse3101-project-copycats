@@ -14,8 +14,6 @@ st.set_page_config(
 c_title, c_backtest = st.columns([9, 1], vertical_alignment = "center")
 with c_title: 
     st.title("Beginner Dashboard")
-with c_backtest: 
-    new_backtest_button()
     
 # date layout
 c1, c2, c3 = st.columns([0.8, 0.1, 0.1])
