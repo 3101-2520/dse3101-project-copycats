@@ -20,6 +20,7 @@ DATA_DIR = PROJECT_ROOT / "Datasets"
 RAW_DIR = DATA_DIR / "13F_zip_files"
 CLEAN_DIR = DATA_DIR / "13F_clean_files"
 FILTERED_AND_MAPPED_DIR = DATA_DIR / "13F_filtered_and_mapped_files"
+MAPPER_DIR = DATA_DIR / "others" 
 TEMP_DIR = PROJECT_ROOT / "temp"
 
 # Ensure directories exist
@@ -60,7 +61,7 @@ def main():
 
     
     # Step 2: Apply all filters and map CUSIP to ticker for each quarter's clean parquet files, and save the final filtered + mapped data as separate parquet files. 
-    apply_filters_and_mapping_to_all_parquets(CLEAN_DIR, FILTERED_AND_MAPPED_DIR, whitelist_ciks)
+    apply_filters_and_mapping_to_all_parquets(CLEAN_DIR, FILTERED_AND_MAPPED_DIR, MAPPER_DIR, whitelist_ciks)
 
 if __name__ == "__main__":
     main()

@@ -87,14 +87,14 @@ def filter_and_map_single_parquet(parquet_path: Path, filtered_and_mapped_dir: P
         "unmapped_tickers":             unmapped
     }
    
-def apply_filters_and_mapping_to_all_parquets(clean_dir: Path, filtered_dir: Path,
+def apply_filters_and_mapping_to_all_parquets(clean_dir: Path, filtered_dir: Path, mapper_dir: Path,
                                                whitelist_ciks: set):
     """
     Reads the pre-built cusip_ticker_map.parquet, then filters and merges
     into each parquet file in clean_dir.
     """
     # Load pre-built cusip->ticker map
-    cusip_map_path = filtered_dir / "cusip_ticker_map.parquet"
+    cusip_map_path = mapper_dir / "cusip_ticker_map.parquet"
     if not cusip_map_path.exists():
         raise FileNotFoundError(
             f"cusip_ticker_map.parquet not found at {cusip_map_path}. "
