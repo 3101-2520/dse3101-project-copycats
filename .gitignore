@@ -1,5 +1,6 @@
 # Ignore raw data
 Datasets/13F_zip_files/
+temp
 
 # Ignore compiled Python files
 *.pyc
