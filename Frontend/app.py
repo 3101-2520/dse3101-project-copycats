@@ -12,12 +12,13 @@ st.set_page_config(
 )
 
 # title and new backtest button layout
-c_title, c_backtest = st.columns([9, 1], vertical_alignment = "center")
-with c_title: 
+c_title, c_backtest = st.columns([8, 2], vertical_alignment="center")
+
+with c_title:
     st.title("Beginner Dashboard")
     
 # date layout
-c1, c2, c3 = st.columns([0.8, 0.1, 0.1])
+c1, c2, c3, c4 = st.columns([0.5, 0.2, 0.15, 0.15])
 quarter_end_dates = [
     date(2025, 3, 31),
     date(2025, 6, 30),
@@ -29,6 +30,9 @@ with c1:
     st.write("")
 
 with c2:
+    fee_per_trade = new_backtest_button()
+
+with c3:
     from_date = st.selectbox(
         "From:",
         options=quarter_end_dates,
@@ -37,7 +41,7 @@ with c2:
         key="from_date"
     )
 
-with c3:
+with c4:
     valid_to_dates = [d for d in quarter_end_dates if d >= from_date]
 
     to_date = st.selectbox(
