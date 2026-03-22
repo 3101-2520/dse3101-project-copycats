@@ -9,6 +9,7 @@ from Backend.transform.clean_all_form13f import run_batch
 from Backend.transform.general_filter_form13f import get_combined_df, get_whitelist_ciks_list
 from Backend.transform.mapper_cusip_to_ticker import map_cusip_to_ticker
 from Backend.transform.apply_filters_and_mapping_form13f import build_and_save_cusip_ticker_map, apply_filters_and_mapping_to_all_parquets
+from Backend.transform.light_heterogeneity_screen import run_light_heterogeneity_screen
 
 # ==========================================================
 # PATHS
@@ -22,12 +23,14 @@ CLEAN_DIR = DATA_DIR / "13F_clean_files"
 FILTERED_AND_MAPPED_DIR = DATA_DIR / "13F_filtered_and_mapped_files"
 MAPPER_DIR = DATA_DIR / "others" 
 TEMP_DIR = PROJECT_ROOT / "temp"
+SCREENED_DIR = DATA_DIR / "13F_filtered_and_mapped_and_screened_files"
 
 # Ensure directories exist
 RAW_DIR.mkdir(parents=True, exist_ok=True)
 CLEAN_DIR.mkdir(parents=True, exist_ok=True)
 FILTERED_AND_MAPPED_DIR.mkdir(parents=True, exist_ok=True)
 TEMP_DIR.mkdir(parents=True, exist_ok=True)
+SCREENED_DIR.mkdir(parents=True, exist_ok=True)
 
 # ==========================================================
 # CONFIG
@@ -62,6 +65,14 @@ def main():
     
     # Step 2: Apply all filters and map CUSIP to ticker for each quarter's clean parquet files, and save the final filtered + mapped data as separate parquet files. 
     apply_filters_and_mapping_to_all_parquets(CLEAN_DIR, FILTERED_AND_MAPPED_DIR, MAPPER_DIR, whitelist_ciks)
+
+    # Step 3: Light heterogeneity screening
+    run_light_heterogeneity_screen(
+        input_dir=FILTERED_AND_MAPPED_DIR,
+        output_dir=SCREENED_DIR,
+        mapper_dir=MAPPER_DIR,   
+        threshold=400
+    )
 
 if __name__ == "__main__":
     main()
