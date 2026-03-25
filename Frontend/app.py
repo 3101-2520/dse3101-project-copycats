@@ -4,6 +4,7 @@ from streamlit_echarts import st_echarts
 from components.new_backtest import new_backtest_button #for yenfay's code testing, DO NOT OVERWRITE PLEASE! 
 from components.top_20 import top_20_table #for yenfay's code testing, DO NOT OVERWRITE PLEASE!
 from datetime import date 
+import math
 
 # page set up and layout
 st.set_page_config(
@@ -92,6 +93,14 @@ def render_metric(label, value, kind="number"):
         """,
         unsafe_allow_html=True
     )
+
+def normalize_series(series):
+    base = series[0]
+    return [x / base for x in series]
+
+def log_transform(series):
+    base = series[0]
+    return [math.log(x / base) for x in series]
     
 # configure left column for graph and right column for table
 col_left, col_right = st.columns([6, 4])
@@ -101,21 +110,99 @@ with col_left:
     ### ruiqian add your code here for the metrics ###
     # Placeholder for now
     #st.line_chart([1,2,3,2,5])
+    chart_c1, chart_c2, _ = st.columns([1, 1, 4])
+    with chart_c1:
+        use_log_scale = st.checkbox("Log scale", value=False)
+    with chart_c2:
+        show_benchmark = st.checkbox("Show SPY", value=True)
+
     portfolio_dates = [
-        "2025-01", "2025-02", "2025-03", "2025-04",
-        "2025-05", "2025-06", "2025-07", "2025-08",
-        "2025-09", "2025-10", "2025-11", "2025-12"
+        "2024-Q1", "2024-Q2", "2024-Q3", "2024-Q4",
+        "2025-Q1", "2025-Q2", "2025-Q3", "2025-Q4"
     ]
 
     portfolio_values = [
-        100000, 125000, 118000, 140000,
-        155000, 210000, 175000, 235000,
-        248000, 225000, 275000, 260000
+        100000, 120000, 115000, 140000,
+        160000, 180000, 175000, 200000
     ]
+
+    spy_values = [
+        100000, 105000, 110000, 115000,
+        120000, 130000, 135000, 140000
+    ]
+
+    # To integrate with backend, replace portfolio_dates and portfolio_values with backend output:
+    # portfolio_dates = backend_output["dates"]
+    # portfolio_values = backend_output["portfolio_values"]
+    # spy_values = backend_output["spy_values"]
     
-    # To integrate with backend, replace portfolio_dates and portfolio_values with code below and replace with output from backend:
-    #portfolio_dates = backend_output["dates"]
-    #portfolio_values = backend_output["portfolio_values"]
+    if use_log_scale:
+        portfolio_plot = log_transform(portfolio_values)
+        spy_plot = log_transform(spy_values)
+
+        y_axis_type = "value"   # IMPORTANT: NOT "log"
+        
+        y_axis_formatter = """
+        function(value) {
+            return (value * 100).toFixed(0) + '%';
+        }
+        """
+
+        tooltip_formatter = """
+        function(params) {
+            let result = params[0].axisValue + '<br/>';
+            for (let i = 0; i < params.length; i++) {
+                let pct = (params[i].value * 100).toFixed(1);
+                result += params[i].seriesName + ': ' + pct + '%<br/>';
+            }
+            return result;
+        }
+        """
+    else:
+        portfolio_plot = portfolio_values
+        spy_plot = spy_values
+        y_axis_type = "value"
+        y_axis_min = None
+        area_style = {}
+        y_axis_formatter = """
+        function(value) {
+            return value.toLocaleString();
+        }
+        """
+        tooltip_formatter = """
+        function(params) {
+            let result = params[0].axisValue + '<br/>';
+            for (let i = 0; i < params.length; i++) {
+                result += params[i].seriesName + ': ' + params[i].value.toLocaleString() + '<br/>';
+            }
+            return result;
+        }
+        """
+    portfolio_area = {"opacity": 0.22}
+    spy_area = {"opacity": 0.32}
+
+    series = [
+        {
+            "name": "Portfolio",
+            "type": "line",
+            "smooth": False,
+            "symbol": "circle",
+            "symbolSize": 8,
+            "data": portfolio_plot,
+            "areaStyle": portfolio_area
+        }
+    ]
+
+    if show_benchmark:
+        series.append({
+            "name": "SPY",
+            "type": "line",
+            "smooth": False,
+            "symbol": "circle",
+            "symbolSize": 7,
+            "data": spy_plot,
+            "areaStyle": spy_area
+        })
 
     chart_option = {
         "title": {
@@ -125,12 +212,19 @@ with col_left:
         "tooltip": {
             "trigger": "axis"
         },
+        "legend": {
+            "data": ["Portfolio", "SPY"],
+            "top": 40
+        },
+        "grid": {
+            "top": 80
+        },
         "toolbox": {
             "feature": {
                 "saveAsImage": {},
                 "dataView": {"readOnly": True},
                 "restore": {},
-                "dataZoom": {},
+                "dataZoom": {}
             }
         },
         "xAxis": {
@@ -138,24 +232,12 @@ with col_left:
             "boundaryGap": False,
             "data": portfolio_dates
         },
-        "yAxis": {
-            "type": "value"
-        },
+        "yAxis": {"type": "value"},
         "dataZoom": [
             {"type": "inside"},
             {"type": "slider"}
         ],
-        "series": [
-            {
-                "name": "Portfolio",
-                "type": "line",
-                "smooth": True,
-                "symbol": "circle",
-                "symbolSize": 8,
-                "data": portfolio_values,
-                "areaStyle": {}
-            }
-        ]
+        "series": series
     }
 
     st_echarts(chart_option, height="450px")
