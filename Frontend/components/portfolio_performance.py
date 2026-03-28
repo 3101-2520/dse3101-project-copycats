@@ -255,34 +255,48 @@ def portfolio_performance():
 
     st_echarts(chart_option, height="450px")
 
+    starting_capital = portfolio_values[0]
+    ending_capital = portfolio_values[-1]
+
+    # CAGR (simple version based on periods)
+    num_periods = len(portfolio_values) - 1
+    cagr = ((ending_capital / starting_capital) ** (1 / max(num_periods, 1)) - 1) * 100
+
+    # Max Drawdown
+    peak = portfolio_values[0]
+    max_drawdown = 0
+    for v in portfolio_values:
+        if v > peak:
+            peak = v
+        drawdown = (v - peak) / peak
+        if drawdown < max_drawdown:
+            max_drawdown = drawdown
+    max_drawdown *= 100  # convert to %
+
+    # Profit to Drawdown ratio
+    profit_to_dd = None
+    if max_drawdown != 0:
+        profit_to_dd = cagr / abs(max_drawdown)
+
     metrics = [
-        ("CAGR", 6.37, "percent"),
-        ("Sharpe Ratio", 0.40, "number"),
-        ("Max Drawdown", -21.88, "percent"),
-        ("Volatility", 21.04, "percent"),
-        ("Total Return", 8.34, "percent"),
-        ("Alpha", None, "percent"),
-        ("Beta", None, "number"),
-        ("Win percentage", None, "percent"),
+        ("Sharpe Ratio", 0.40, "number"),          # keep placeholder or backend later
+        ("Sortino Ratio", None, "number"),         # placeholder
+        ("CAGR", cagr, "percent"),
+        ("Max Drawdown", max_drawdown, "percent"),
+        ("Starting Capital", starting_capital, "number"),
+        ("Ending Capital", ending_capital, "number"),
+        ("Profit / Drawdown", profit_to_dd, "number"),
     ]
-    ###To integrate with backend, replace metrics with code below and replacewith output from backend:
-    ###metrics = [
-    ###    ("CAGR", backend_output["cagr"], "percent"),
-    ###    ("Sharpe Ratio", backend_output["sharpe_ratio"], "number"),
-    ###    ("Max Drawdown", backend_output["max_drawdown"], "percent"),
-    ###    ("Volatility", backend_output["volatility"], "percent"),
-    ###    ("Total Return", backend_output["total_return"], "percent"),
-    ###    ("Alpha", backend_output["alpha"], "percent"),
-    ###    ("Beta", backend_output["beta"], "number"),
-    ###    ("Win percentage", backend_output["win_percentage"], "percent"),
-    ###]
 
     metric_row_1 = st.columns(4,gap="small")
-    metric_row_2 = st.columns(4,gap="small")
 
     for col, metric in zip(metric_row_1, metrics[:4]):
         with col:
             render_metric(*metric)
+
+    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+
+    metric_row_2 = st.columns(3,gap="small")
 
     for col, metric in zip(metric_row_2, metrics[4:]):
         with col:
