@@ -4,7 +4,7 @@ from pathlib import Path
 import pandas as pd
 import zipfile
 import os
-from Datasets.download_data_from_kaggle import download_data_from_kaggle
+from Backend.transform.download_data_from_kaggle import download_data_from_kaggle
 from Backend.transform.clean_all_form13f import run_batch
 from Backend.transform.general_filter_form13f import get_combined_df, get_whitelist_ciks_list, build_and_save_whitelist_ciks
 from Backend.transform.mapper_cusip_to_ticker import map_cusip_to_ticker, build_and_save_cusip_ticker_map
@@ -44,29 +44,29 @@ def main():
         # Perform all the steps in production mode. 
 
         # Step 1: Clean zip files and convert to parquet files
-        logger.info("=== Step 0: Unzip raw form13f files and convert to clean parquet files ===")
+        logger.info("=== Step 1: Unzip raw form13f files and convert to clean parquet files ===")
         run_batch(RAW_DIR, CLEAN_DIR, TEMP_DIR)
 
         # Step 2: Build whitelist_cik list to filter institutions
-        logger.info("=== Step 1: Build whitelist of CIKs based on filters and save as parquet ===")
+        logger.info("=== Step 2: Build whitelist of CIKs based on filters and save as parquet ===")
         build_and_save_whitelist_ciks(CLEAN_DIR, MAPPER_DIR)
 
         # Step 3: Build cusip to ticker map and save as parquet 
-        logger.info("=== Step 2: Build cusip to ticker map using OpenFIGI API and save as parquet ===")
+        logger.info("=== Step 3: Build cusip to ticker map using OpenFIGI API and save as parquet ===")
         build_and_save_cusip_ticker_map(CLEAN_DIR, MAPPER_DIR, OPENFIGI_KEY)
 
         # Step 4: Apply all filters and map CUSIP to ticker for each quarter's clean parquet files, and save the final filtered + mapped data as separate parquet files. 
-        logger.info("=== Step 3: Apply filters and mapping to all parquets ===")
+        logger.info("=== Step 4: Apply filters and mapping to all parquets ===")
         apply_filters_and_mapping_to_all_parquets(CLEAN_DIR, FILTERED_AND_MAPPED_DIR, MAPPER_DIR)
 
-    # Step 5: Light heterogeneity screening
-    logger.info("=== Step 4: Run light heterogeneity screening ===")
-    run_light_heterogeneity_screen(
-        input_dir=FILTERED_AND_MAPPED_DIR,
-        output_dir=SCREENED_DIR,
-        mapper_dir=MAPPER_DIR,   
-        threshold=400
-    )
+        # Step 5: Light heterogeneity screening
+        logger.info("=== Step 5: Run light heterogeneity screening ===")
+        run_light_heterogeneity_screen(
+            input_dir=FILTERED_AND_MAPPED_DIR,
+            output_dir=SCREENED_DIR,
+            mapper_dir=MAPPER_DIR,   
+            threshold=400
+        )
 
 # Test
 if __name__ == "__main__":

@@ -52,17 +52,17 @@ FORM13F_FOLDER_PATH = DATA_DIR / "13F_filtered_and_mapped_and_screened_files"
 PRICES_FILE_FULL    = DATA_DIR / "stock_price_data" / "stock_prices_all.parquet"
 FINAL_FILES_FOLDER  = DATA_DIR / "final_files"
 
-# ==========================================================
-# ENSURE DIRECTORIES EXIST
-# ==========================================================
-for _dir in [
-    RAW_DIR,
-    CLEAN_DIR,
-    FILTERED_AND_MAPPED_DIR,
-    SCREENED_DIR,
-    TEMP_DIR,
-    FINAL_FILES_FOLDER,
-]:
-    _dir.mkdir(parents=True, exist_ok=True)
+# # ==========================================================
+# # ENSURE DIRECTORIES EXIST
+# # ==========================================================
+# for _dir in [
+#     RAW_DIR,
+#     CLEAN_DIR,
+#     FILTERED_AND_MAPPED_DIR,
+#     SCREENED_DIR,
+#     TEMP_DIR,
+#     FINAL_FILES_FOLDER,
+# ]:
+#     _dir.mkdir(parents=True, exist_ok=True)
 
 
