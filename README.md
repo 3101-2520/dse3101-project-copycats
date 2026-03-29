@@ -82,10 +82,10 @@ python -m Backend.backtesting.batch_process_rank_stocks
 | `userinput_start_date` | `'2013-12-31'` | Backtest start date |
 | `userinput_end_date` | `'2025-05-23'` | Backtest end date |
 | `userinput_initial_capital` | `10_000` | Starting capital ($) |
-| `userinput_topN` | `10` | Top N stocks to hold per quarter |
-| `userinput_topN_institutions` | `10` | Top institutions to track (10, 20, or 30) |
-| `userinput_lag` | `47` | Lag days (adjustable) |
-| `userinput_cost_rate` | `0.001` | Transaction cost as fraction of traded value (0.1%) |
+| `userinput_topN` | `10` | Top N stocks to hold per quarter. Default = 10|
+| `userinput_topN_institutions` | `10` | Top institutions to track (10, 20, or 30). Default = 10 |
+| `userinput_lag` | `47` | Lag days (adjustable). Default = 47 |
+| `userinput_cost_rate` | `0.001` | Transaction cost as fraction of traded value (0.1%). Default = 0.001 |
 
 ---
 
