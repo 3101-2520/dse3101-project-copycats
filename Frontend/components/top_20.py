@@ -1,10 +1,9 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 
 
 def top_20_table():
-    # Replace this dummy data with backend data
+    # Dummy data for now
     holdings_data = [
         {
             "Rank": 1,
@@ -138,17 +137,23 @@ def top_20_table():
         }
     ]
 
-    table_df = pd.DataFrame(holdings_data)[["Rank", "Ticker", "Allocation"]]
+    topN = st.session_state.get("topN", 10)
+    topN_institutions = st.session_state.get("topN_institutions", 10)
+
+    filtered_holdings = holdings_data[:topN]
+
+    st.caption(f"Showing top {topN} stocks based on holdings across top {topN_institutions} institutions (dummy data).")
+
+    table_df = pd.DataFrame(filtered_holdings)[["Rank", "Ticker", "Allocation"]]
 
     st.dataframe(
         table_df,
-        use_container_width=True,
+        width="stretch",
         hide_index=True
     )
 
     st.markdown("---")
 
-    # TODO: Replace ticker detail retrieval with backend-linked stock metadata if needed.
     ticker_options = table_df["Ticker"].tolist()
 
     selected_ticker = st.selectbox(
@@ -158,7 +163,7 @@ def top_20_table():
     )
 
     selected_stock = next(
-        stock for stock in holdings_data if stock["Ticker"] == selected_ticker
+        stock for stock in filtered_holdings if stock["Ticker"] == selected_ticker
     )
 
     st.markdown(f"### {selected_stock['Ticker']} Details")
