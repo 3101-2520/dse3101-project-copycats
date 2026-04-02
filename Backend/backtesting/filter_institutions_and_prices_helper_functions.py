@@ -36,6 +36,7 @@ def filter_form13f_for_top_institutions(folder_path: str, institution_list: list
             FROM read_parquet('{folder_path}/**/*.parquet', hive_partitioning = false)
             WHERE CIK IN ({cik_filter})
             AND exchCode IN ('US')
+            ORDER BY PERIODOFREPORT ASC, CIK ASC
         )
         TO '{form13f_output}/final_top{num_institutions}_form13f.parquet' (FORMAT PARQUET)
     """
@@ -61,6 +62,7 @@ def filter_prices_for_top_institutions(institution_list: list[str], prices_file:
                 FROM read_parquet('{holdings_file}')
                 WHERE ticker IS NOT NULL
             )
+            ORDER BY p.date ASC, p.ticker ASC
         )
         TO '{prices_output_dir}/final_top{num_institutions}_prices.parquet' (FORMAT PARQUET);
     """

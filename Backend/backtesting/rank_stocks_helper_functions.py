@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import duckdb
 import pandas as pd
 import numpy as np
@@ -177,7 +179,8 @@ def extract_price_subset(prices: pd.DataFrame, topN: pd.DataFrame) -> pd.DataFra
 def run_backtest(topN: pd.DataFrame,
                  prices: pd.DataFrame,
                  initial_capital: float,
-                 cost_rate: float = 0.001) -> pd.DataFrame:
+                 cost_rate: float = 0.001,
+                 end_date=None) -> pd.DataFrame:
     """
     Equal-weight quarterly rebalance back-test.
  
@@ -254,13 +257,30 @@ def run_backtest(topN: pd.DataFrame,
     # ---- trade_date label per quarter (for output column) ------------
     # Same values as trade_date_map but kept separate for clarity
     trade_date_label_map: dict = trade_date_map.copy()
+
+    # ---- EXTEND TO end_date using last quarter's holdings ------------
+    if end_date is not None:
+        end_date = pd.to_datetime(end_date).date()
+        last_quarter = quarters[-1]
+        last_trade_date = trade_date_map[last_quarter]
+
+        # Only add phantom if end_date extends beyond the last trade date
+        if end_date > last_trade_date:
+            phantom_quarter = end_date + timedelta(days=1)
+
+            trade_date_map[phantom_quarter]       = phantom_quarter
+            tickers_map[phantom_quarter]          = tickers_map[last_quarter]
+            trade_date_label_map[phantom_quarter] = phantom_quarter
+
+            quarters = quarters + [phantom_quarter]
+    # ------------------------------------------------------------------
  
     # ---- holding period per quarter ----------------------------------
     # holding_period = trade_date[q] to last trading day before trade_date[q+1]
     # Built after adj_close_wide so we can look up the last actual trading day.
     # Populated in the loop below once adj_close_wide is available.
     holding_period_map: dict = {}
- 
+
     # ---- wide adj_close table for daily valuation --------------------
     # rows = trading dates, columns = tickers, values = adj_close
     adj_close_wide = (

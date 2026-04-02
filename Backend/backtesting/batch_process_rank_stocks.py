@@ -123,7 +123,7 @@ def run_strategy(
     # 7. Run the back-test
     logger.info("[INFO] Backtesting START")
 
-    portfolio = run_backtest(topN, prices_subset, initial_capital, cost_rate=cost_rate)
+    portfolio = run_backtest(topN, prices_subset, initial_capital, cost_rate=cost_rate, end_date=end_date)
 
     logger.info("[INFO] Backtesting END")
     logger.info("[INFO] Portoflio dataframe obtained")
@@ -194,7 +194,7 @@ def main(userinput_start_date,
         topN_institutions = userinput_topN_institutions,
         topN_stocks = userinput_topN_stocks,
         lag=userinput_lag,
-        cost_rate=userinput_cost_rate,
+        cost_rate=userinput_cost_rate
     )
 
     # 2. run evaluation
@@ -228,10 +228,9 @@ if __name__ == "__main__":
                                "0001691827", "0001764387", "0000866590", "0001510434", "0001308685", "0001744317", "0001600999", "0001667134", "0001641447", "0001670104"]
         get_final_files(TOP_30_INSTITUTIONS, FORM13F_FOLDER_PATH, PRICES_FILE_FULL, FINAL_FILES_FOLDER)
 
-
     # Change user inputs here:
-    userinput_start_date = '2013-12-31' 
-    userinput_end_date = '2025-05-23'
+    userinput_start_date = '2024-12-31' 
+    userinput_end_date = '2026-03-31'
     userinput_initial_capital = 10_000
     userinput_topN = 10 # default at 10. User can choose any topN stocks to hold per quarter.
     userinput_topN_institutions= 10 # default at 10. User can choose between 10,20,30 top institutions.
