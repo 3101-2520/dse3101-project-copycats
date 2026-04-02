@@ -215,10 +215,19 @@ if __name__ == "__main__":
 
     if not DEBUG:
         # Perform all the steps in production mode. 
-        # Inital step. Get final form13f files and final price files (filtered to contain only top 10, 20, 30 institutions)
-        TOP_10_INSTITUTIONS = ["0001135121", "0001346824", "0001387322", "0001112325", "0001354590", "0001352342", "0001647251", "0001398825", "0000911270", "0001425649"]
+        # Get final files for top 10 institutions
+        TOP_10_INSTITUTIONS = ["0001767601", "0000857508", "0001727993", "0000914976", "0001767898", "0000872259", "0001482935", "0001536446", "0001017115", "0001082339"]
         get_final_files(TOP_10_INSTITUTIONS, FORM13F_FOLDER_PATH, PRICES_FILE_FULL, FINAL_FILES_FOLDER)
-        # --> add top 20 and top 30 here
+        # Get final files for top 20 institutions
+        TOP_20_INSTITUTIONS = ["0001767601", "0000857508", "0001727993", "0000914976", "0001767898", "0000872259", "0001482935", "0001536446", "0001017115", "0001082339", 
+                               "0001697233", "0001502149", "0001080369", "0001751581", "0001592746", "0001747799", "0001004244", "0001138486", "0001698777", "0001455251"]
+        get_final_files(TOP_20_INSTITUTIONS, FORM13F_FOLDER_PATH, PRICES_FILE_FULL, FINAL_FILES_FOLDER)
+        # Get final files for top 30 institutions
+        TOP_30_INSTITUTIONS = ["0001767601", "0000857508", "0001727993", "0000914976", "0001767898", "0000872259", "0001482935", "0001536446", "0001017115", "0001082339", 
+                               "0001697233", "0001502149", "0001080369", "0001751581", "0001592746", "0001747799", "0001004244", "0001138486", "0001698777", "0001455251", 
+                               "0001691827", "0001764387", "0000866590", "0001510434", "0001308685", "0001744317", "0001600999", "0001667134", "0001641447", "0001670104"]
+        get_final_files(TOP_30_INSTITUTIONS, FORM13F_FOLDER_PATH, PRICES_FILE_FULL, FINAL_FILES_FOLDER)
+
 
     # Change user inputs here:
     userinput_start_date = '2013-12-31' 
