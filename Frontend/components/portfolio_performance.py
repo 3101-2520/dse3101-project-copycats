@@ -5,13 +5,28 @@ from streamlit_echarts import st_echarts
 import math
 from streamlit_echarts import st_echarts, JsCode
 import pandas as pd
+from Backend.backtesting.batch_process_rank_stocks import main
+import numpy as np
 
 @st.cache_data
-def load_frontend_data():
-
-    # assume main() returns:
-    # portfolio_df, metrics_df
-    portfolio_df, metrics_df = main()
+def load_frontend_data(
+    start_date='2013-12-31',
+    end_date='2025-05-23',
+    initial_capital=10_000,
+    topN_stocks=10,
+    topN_institutions=10,
+    lag=47,
+    cost_rate=0.001,
+):
+    portfolio_df, metrics_df = main(
+        userinput_start_date=str(start_date),
+        userinput_end_date=str(end_date),
+        userinput_initial_capital=initial_capital,
+        userinput_topN_stocks=topN_stocks,
+        userinput_topN_institutions=topN_institutions,
+        userinput_lag=lag,
+        userinput_cost_rate=cost_rate,
+    )
     return portfolio_df, metrics_df
 
 # ---------- metric helper functions ----------
@@ -55,6 +70,8 @@ def render_metric(label, value, kind="number"):
         unsafe_allow_html=True
     )
 
+def count_quarters(portfolio_df):
+    return portfolio_df["quarter"].nunique()
 
 def log_returns(series):
     returns = [0]
@@ -62,9 +79,9 @@ def log_returns(series):
         returns.append(math.log(series[i] / series[i - 1]))
     return returns
     
-
+RF_ANNUAL = 0.0375
+RF_QUARTERLY = RF_ANNUAL / 4
 # Placeholder for now
-#st.line_chart([1,2,3,2,5])
 def portfolio_performance():
     chart_c1, chart_c2, _ = st.columns([1, 1, 4])
     with chart_c1:
@@ -72,47 +89,27 @@ def portfolio_performance():
     with chart_c2:
         show_benchmark = st.checkbox("Show SPY", value=True)
 
-    portfolio_dates = [
-        "2022-Q2", "2022-Q3", "2022-Q4",
-        "2023-Q1", "2023-Q2", "2023-Q3", "2023-Q4"
-    ]
-
-    portfolio_values = [
-        8371.937801,
-        9314.938979,
-        8577.787879,
-        8729.342859,
-        8768.148067,
-        10551.983110,
-        10834.367892
-    ]
-
-    spy_values = [
-        384.624,
-        401.411,
-        399.312,
-        432.685,
-        440.866,
-        494.167,
-        522.047
-    ]
-
     from_date = st.session_state.get("from_date", None)
     to_date = st.session_state.get("to_date", None)
+    
 
+    portfolio_df, metrics_df = load_frontend_data(
+        start_date=from_date,
+        end_date=to_date
+    )
+    portfolio_dates = portfolio_df["quarter"].tolist()
+    portfolio_values = portfolio_df["portfolio_value"].tolist()
+    #spy_values = portfolio_df["spy_value"].tolist()
+    spy_values = portfolio_values.copy()
+    
     if from_date is None or to_date is None:
         st.warning("Please select date range")
         return
-
-    quarter_end_dates = [
-        date(2022, 6, 30),
-        date(2022, 9, 30),
-        date(2022, 12, 31),
-        date(2023, 3, 31),
-        date(2023, 6, 30),
-        date(2023, 9, 30),
-        date(2023, 12, 31),
-    ]
+    quarter_end_dates = pd.to_datetime(portfolio_df["date"]).dt.date.tolist()
+    #portfolio_dates = ["2022-Q2", "2022-Q3", "2022-Q4","2023-Q1", "2023-Q2", "2023-Q3", "2023-Q4"]
+    #portfolio_values = [8371.937801,9314.938979,8577.787879,8729.342859,8768.148067,10551.983110,10834.367892]
+    #spy_values = [384.624,401.411,399.312,432.685,440.866,494.167,522.047]
+    #quarter_end_dates = [date(2022, 6, 30),date(2022, 9, 30),date(2022, 12, 31),date(2023, 3, 31),date(2023, 6, 30),date(2023, 9, 30),date(2023, 12, 31)]
 
     filtered = [
         (d, label, p, s)
@@ -123,10 +120,11 @@ def portfolio_performance():
     if not filtered:
         st.warning("No data available for the selected date range")
         # fallback to full dataset
-        filtered = list(zip(quarter_end_dates, portfolio_dates, portfolio_values, spy_values))
+        #filtered = list(zip(quarter_end_dates, portfolio_dates, portfolio_values, spy_values))
+        return
 
     _, portfolio_dates, portfolio_values, spy_values = zip(*filtered)
-    portfolio_dates = list(portfolio_dates)
+    portfolio_dates = [str(x) for x in portfolio_dates]
     portfolio_values = list(portfolio_values)
     spy_values = list(spy_values)
 
@@ -137,20 +135,20 @@ def portfolio_performance():
         portfolio_plot = portfolio_values
         spy_plot = spy_values
 
-    # To integrate with backend, replace portfolio_dates and portfolio_values with backend output:
-    # portfolio_dates = backend_output["dates"]
-    # portfolio_values = backend_output["portfolio_values"]
-    # spy_values = backend_output["spy_values"]
 
     if use_log_scale:
-        yAxis = {
-            "type": "value",
-            "axisLabel": {
-                "formatter": JsCode(
-                    "function(value) { return (value * 100).toFixed(1) + '%'; }"
-                )
+        yAxis = [
+            {
+                "type": "value",
+                "name": "Log Return",
+                "position": "left",
+                "axisLabel": {
+                    "formatter": JsCode(
+                        "function(value) { return (value * 100).toFixed(1) + '%'; }"
+                    )
+                }
             }
-        }
+        ]
     else:
         yAxis = [
             {
@@ -182,11 +180,11 @@ def portfolio_performance():
             {
                 "name": "Portfolio",
                 "type": "line",
+                "yAxisIndex": 0,
                 "smooth": False,
                 "symbol": "circle",
                 "symbolSize": 8,
                 "data": portfolio_plot,
-                #"areaStyle": {"opacity": 0.22}
             }
         ]
 
@@ -194,11 +192,11 @@ def portfolio_performance():
             series.append({
                 "name": "SPY",
                 "type": "line",
+                "yAxisIndex": 0,
                 "smooth": False,
                 "symbol": "circle",
                 "symbolSize": 7,
                 "data": spy_plot,
-                #"areaStyle": {"opacity": 0.42}
             })
     else:
         series = [
@@ -210,7 +208,6 @@ def portfolio_performance():
                 "symbol": "circle",
                 "symbolSize": 8,
                 "data": portfolio_plot,
-                #"areaStyle": {"opacity": 0.22}
             }
         ]
 
@@ -223,8 +220,10 @@ def portfolio_performance():
                 "symbol": "circle",
                 "symbolSize": 7,
                 "data": spy_plot,
-                #"areaStyle": {"opacity": 0.42}
             })
+    legend_data = ["Portfolio"]
+    if show_benchmark:
+        legend_data.append("SPY")
 
     chart_option = {
         "title": {
@@ -235,7 +234,7 @@ def portfolio_performance():
             "trigger": "axis"
         },
         "legend": {
-            "data": ["Portfolio", "SPY"],
+            "data": legend_data,
             "top": 40
         },
         "grid": {
@@ -262,15 +261,20 @@ def portfolio_performance():
         "series": series
     }
 
-    st_echarts(chart_option, height="450px")
+    st_echarts(
+        chart_option,
+        height="450px",
+        key=f"portfolio_chart_{use_log_scale}_{show_benchmark}"
+    )
 
     starting_capital = portfolio_values[0]
     ending_capital = portfolio_values[-1]
 
     # CAGR (simple version based on periods)
-    num_periods = len(portfolio_values) - 1
-    cagr = ((ending_capital / starting_capital) ** (1 / max(num_periods, 1)) - 1) * 100
-
+    number_of_quarters = count_quarters(portfolio_df)
+    years = number_of_quarters / 4
+    cagr = ((ending_capital / starting_capital) ** (1 / max(years, 1e-6)) - 1) * 100
+    
     # Max Drawdown
     peak = portfolio_values[0]
     max_drawdown = 0
@@ -286,10 +290,17 @@ def portfolio_performance():
     profit_to_dd = None
     if max_drawdown != 0:
         profit_to_dd = cagr / abs(max_drawdown)
+    
+    quarterly_returns = pd.Series(portfolio_values).pct_change().dropna()
+    excess = quarterly_returns - RF_QUARTERLY
+    sharpe = (excess.mean() / excess.std()) * np.sqrt(4) if excess.std() != 0 else 0
+    downside = quarterly_returns[quarterly_returns < RF_QUARTERLY] - RF_QUARTERLY
+    downside_std = np.sqrt((downside ** 2).mean()) if len(downside) > 0 else 0
+    sortino = (excess.mean() / downside_std) * np.sqrt(4) if downside_std != 0 else 0
 
     metrics = [
-        ("Sharpe Ratio", 0.40, "number"),          # keep placeholder or backend later
-        ("Sortino Ratio", None, "number"),         # placeholder
+        ("Sharpe Ratio", sharpe, "number"),          # keep placeholder or backend later
+        ("Sortino Ratio", sortino, "number"),         # placeholder
         ("CAGR", cagr, "percent"),
         ("Max Drawdown", max_drawdown, "percent"),
         ("Starting Capital", starting_capital, "number"),
