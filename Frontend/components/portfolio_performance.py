@@ -9,7 +9,7 @@ from Backend.backtesting.batch_process_rank_stocks import main
 import numpy as np
 
 @st.cache_data
-def load_frontend_data(start_date='2013-12-31',end_date='2025-05-23',initial_capital=10_000,topN_stocks=10,topN_institutions=10,lag=47,cost_rate=0.001,):
+def load_frontend_data(start_date,end_date,initial_capital=10_000,topN_stocks=10,topN_institutions=10,lag=47,cost_rate=0.001,):
     portfolio_df, metrics_df = main(
         userinput_start_date=str(start_date),
         userinput_end_date=str(end_date),
@@ -98,7 +98,8 @@ def portfolio_performance():
         lag=lag,
         cost_rate=cost_rate,
     )
-    portfolio_dates = portfolio_df["quarter"].tolist()
+    #portfolio_dates = portfolio_df["quarter"].tolist()
+    portfolio_dates = pd.to_datetime(portfolio_df["date"])
     portfolio_values = portfolio_df["portfolio_value"].tolist()
     #spy_values = portfolio_df["spy_value"].tolist()
     spy_values = portfolio_values.copy() # Dummy, until spy_values added in backend
@@ -119,7 +120,9 @@ def portfolio_performance():
         return
 
     _, portfolio_dates, portfolio_values, spy_values = zip(*filtered)
-    portfolio_dates = [str(x) for x in portfolio_dates]
+    #portfolio_dates = [str(x) for x in portfolio_dates]
+    portfolio_dates = pd.to_datetime(portfolio_dates)
+    portfolio_dates = [d.strftime("%Y-%m-%d") for d in portfolio_dates]
     portfolio_values = list(portfolio_values)
     spy_values = list(spy_values)
 
@@ -130,6 +133,16 @@ def portfolio_performance():
         portfolio_plot = portfolio_values
         spy_plot = spy_values
 
+        chart_min = min(portfolio_plot)
+        chart_max = max(portfolio_plot)
+
+        if show_benchmark:
+            chart_min = min(chart_min, min(spy_plot))
+            chart_max = max(chart_max, max(spy_plot))
+
+        padding = (chart_max - chart_min) * 0.1 if chart_max > chart_min else max(chart_max * 0.1, 1)
+        y_min = max(0, chart_min - padding)
+        y_max = chart_max + padding
 
     if use_log_scale:
         yAxis = [
@@ -150,16 +163,8 @@ def portfolio_performance():
                 "type": "value",
                 "name": "Portfolio ($)",
                 "position": "left",
-                "axisLabel": {
-                    "formatter": JsCode(
-                        "function(value) { return value.toLocaleString(); }"
-                    )
-                }
-            },
-            {
-                "type": "value",
-                "name": "SPY",
-                "position": "right",
+                "min": y_min,
+                "max": y_max,
                 "axisLabel": {
                     "formatter": JsCode(
                         "function(value) { return value.toLocaleString(); }"
@@ -167,6 +172,22 @@ def portfolio_performance():
                 }
             }
         ]
+
+        if show_benchmark:
+            yAxis.append(
+                {
+                    "type": "value",
+                    "name": "SPY",
+                    "position": "right",
+                    "min": y_min,
+                    "max": y_max,
+                    "axisLabel": {
+                        "formatter": JsCode(
+                            "function(value) { return value.toLocaleString(); }"
+                        )
+                    }
+                }
+            )
 
     if use_log_scale:
         series = [
@@ -244,7 +265,17 @@ def portfolio_performance():
         "xAxis": {
             "type": "category",
             "boundaryGap": False,
-            "data": portfolio_dates
+            "data": portfolio_dates,
+            "axisLabel": {
+                "interval": "auto",
+                "formatter": JsCode(
+                    """
+                    function (value) {
+                        return value.slice(0, 7);
+                    }
+                    """
+                )
+            }
         },
         "yAxis": yAxis,
         "dataZoom": [
