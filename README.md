@@ -199,10 +199,18 @@ dse3101investmentproject/
 │   └── stock_price_data/
 ├── Backend/
 │   ├── transform/
-│   │   ├── batch_run
+│   │   ├── batch_run/
 │   │   │   ├── batch_process_stock_price.py ← main run function for transform of stock price data
 │   │   │   └── batch_process_form13f.py     ← main run function for transform of form13f data
 │   │   └── download_data_from_kaggle.py     ← helper to download latest data from kaggle
 │   └── backtesting/
 │       └── batch_process_rank_stocks.py     ← main run function for backtesting of topN stocks (integration with frontend)
+├── Frontend/
+│   ├── app.py                               ← main file to run streamlit dashboard
+│   ├── components/                          
+│   │   ├── add_fees.py                  ← user input functions
+│   │   ├── portfolio_performance.py     ← functions for left panel of dashboard
+│   │   └── top_20.py                    ← functions for right panel of dashboard
+│   ├── streamlit/
+│   │   └── config.toml                  ← customised theme 
 ```
