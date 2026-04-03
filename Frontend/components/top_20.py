@@ -32,13 +32,24 @@ def format_value(value, value_type="text"):
         return f"{value:.2f}"
 
     if value_type == "percent":
+        if value > 1:
+            return f"{value:.2f}%"
         return f"{value * 100:.2f}%"
 
     if value_type == "date":
         try:
-            return pd.to_datetime(value).strftime("%Y-%m-%d")
+            dt = pd.to_datetime(value, unit="s")
+            if dt.year <= 1971:
+                return "N/A"
+            return dt.strftime("%Y-%m-%d")
         except Exception:
-            return "N/A"
+            try:
+                dt = pd.to_datetime(value)
+                if dt.year <= 1971:
+                    return "N/A"
+                return dt.strftime("%Y-%m-%d")
+            except Exception:
+                return "N/A"
 
     return str(value)
 
@@ -64,16 +75,12 @@ def get_stock_details(selected_ticker, stock_snapshot_df):
         "Exchange Country": "N/A",
         "Earnings Date": "N/A",
         "Ex-Dividend Date": "N/A",
-        "PB": "N/A",
-        "Historic High": "N/A",
-        "Historic Low": "N/A",
     }
 
     if stock_snapshot_df is None or stock_snapshot_df.empty:
         return default_details
 
     stock_row = stock_snapshot_df[stock_snapshot_df["ticker"] == selected_ticker]
-
     if stock_row.empty:
         return default_details
 
@@ -99,22 +106,19 @@ def get_stock_details(selected_ticker, stock_snapshot_df):
         "Exchange Country": format_value(stock_row.get("exchange_country")),
         "Earnings Date": format_value(stock_row.get("earnings_date"), "date"),
         "Ex-Dividend Date": format_value(stock_row.get("ex_dividend_date"), "date"),
-        "PB": "N/A",
-        "Historic High": "N/A",
-        "Historic Low": "N/A",
     }
 
 
-def top_20_table(portfolio_df, stock_snapshot_df=None, top_n=10, selected_quarter=None):
+def top_20_table(portfolio_df, top_n=10, selected_quarter=None):
     if portfolio_df is None or portfolio_df.empty:
         st.info("No holdings data available.")
-        return
+        return None
 
     quarter_df = portfolio_df.drop_duplicates(subset=["quarter"]).copy()
 
     if "tickers" not in quarter_df.columns or quarter_df.empty:
         st.info("No ticker data available.")
-        return
+        return None
 
     quarter_df["quarter"] = quarter_df["quarter"].astype(str)
 
@@ -130,7 +134,7 @@ def top_20_table(portfolio_df, stock_snapshot_df=None, top_n=10, selected_quarte
 
     if not isinstance(tickers, list) or len(tickers) == 0:
         st.info("No tickers available for this quarter.")
-        return
+        return None
 
     tickers = tickers[:top_n]
 
@@ -139,9 +143,11 @@ def top_20_table(portfolio_df, stock_snapshot_df=None, top_n=10, selected_quarte
         "Ticker": tickers
     })
 
-    visible_rows = min(len(display_df), 20)
-    row_height = 32
-    header_height = 35
+    row_height = 35
+    header_height = 38
+    max_visible_rows = 20
+
+    visible_rows = min(len(display_df), max_visible_rows)
     table_height = header_height + visible_rows * row_height
 
     st.dataframe(
@@ -151,7 +157,13 @@ def top_20_table(portfolio_df, stock_snapshot_df=None, top_n=10, selected_quarte
         height=table_height
     )
 
-    st.markdown("---")
+    return tickers
+
+
+def render_stock_details(tickers, stock_snapshot_df):
+    if not tickers:
+        st.info("Select a stock to view more details.")
+        return
 
     selected_ticker = st.selectbox(
         "Select a stock to view more details:",
@@ -161,51 +173,34 @@ def top_20_table(portfolio_df, stock_snapshot_df=None, top_n=10, selected_quarte
 
     details = get_stock_details(selected_ticker, stock_snapshot_df)
 
-    st.subheader(f"{selected_ticker} Details")
+    st.markdown(f"**{selected_ticker} Details**")
 
-    st.markdown("**Core Metrics**")
-    c1, c2 = st.columns(2)
-    with c1:
-        st.metric("Market Cap", details["Market Cap"])
-        st.metric("PE Ratio", details["PE Ratio"])
-        st.metric("EPS", details["EPS"])
-    with c2:
-        st.metric("Beta", details["Beta"])
-        st.metric("Forward Dividend Yield", details["Forward Dividend Yield"])
-        st.metric("Exchange Country", details["Exchange Country"])
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Market Cap", details["Market Cap"])
+    c2.metric("PE Ratio", details["PE Ratio"])
+    c3.metric("Earnings Per Share", details["EPS"])
+    c4.metric("Beta", details["Beta"])
 
-    st.markdown("**Price & Target**")
-    c3, c4 = st.columns(2)
-    with c3:
-        st.metric("Current Price", details["Current Price"])
-        st.metric("Previous Close", details["Previous Close"])
-    with c4:
-        st.metric("1Y Target Est", details["1Y Target Est"])
-        st.metric("Earnings Date", details["Earnings Date"])
+    c5, c6, c7, c8 = st.columns(4)
+    c5.metric("Forward Dividend Yield", details["Forward Dividend Yield"])
+    c6.metric("Current Price", details["Current Price"])
+    c7.metric("Previous Close", details["Previous Close"])
+    c8.metric("1Y Target", details["1Y Target Est"])
 
-    st.markdown("**Range & Movement**")
-    c5, c6 = st.columns(2)
-    with c5:
-        st.metric("52 Week High", details["52 Week High"])
-        st.metric("52 Week Low", details["52 Week Low"])
-    with c6:
-        st.metric("Day High", details["Day High"])
-        st.metric("Day Low", details["Day Low"])
+    c9, c10, c11, c12 = st.columns(4)
+    c9.metric("52 Week High", details["52 Week High"])
+    c10.metric("52 Week Low", details["52 Week Low"])
+    c11.metric("Day High", details["Day High"])
+    c12.metric("Day Low", details["Day Low"])
 
-    st.markdown("**Liquidity & Trading**")
-    c7, c8 = st.columns(2)
-    with c7:
-        st.metric("Volume", details["Volume"])
-        st.metric("Avg Volume", details["Avg Volume"])
-    with c8:
-        st.metric("Bid", details["Bid"])
-        st.metric("Ask", details["Ask"])
+    c13, c14, c15, c16 = st.columns(4)
+    c13.metric("Volume", details["Volume"])
+    c14.metric("Average Volume", details["Avg Volume"])
+    c15.metric("Bid", details["Bid"])
+    c16.metric("Ask", details["Ask"])
 
-    st.markdown("**Unavailable in Current File**")
-    c9, c10 = st.columns(2)
-    with c9:
-        st.metric("PB", details["PB"])
-        st.metric("Historic High", details["Historic High"])
-    with c10:
-        st.metric("Historic Low", details["Historic Low"])
-        st.metric("Ex-Dividend Date", details["Ex-Dividend Date"])
+    c17, c18, c19, c20 = st.columns(4)
+    c17.metric("Exchange Country", details["Exchange Country"])
+    c18.metric("Earnings Date", details["Earnings Date"])
+    c19.metric("Ex-Dividend Date", details["Ex-Dividend Date"])
+    c20.empty()
