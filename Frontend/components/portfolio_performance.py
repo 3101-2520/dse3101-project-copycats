@@ -283,7 +283,9 @@ def portfolio_performance():
     profit_to_dd = None
     if max_drawdown != 0:
         profit_to_dd = cagr / abs(max_drawdown)
-    
+
+    values_with_anchor = [starting_capital] + portfolio_values
+    quarterly_returns = pd.Series(values_with_anchor).pct_change().dropna()
     quarterly_returns = pd.Series(portfolio_values).pct_change().dropna()
     excess = quarterly_returns - RF_QUARTERLY
     sharpe = (excess.mean() / excess.std()) * np.sqrt(4) if excess.std() != 0 else 0
