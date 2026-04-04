@@ -12,9 +12,9 @@ Datasets/**
 Datasets/.kaggle_version
 
 # But keep parquet files in Datasets/final_files
-!Datasets/
-!Datasets/final_files/
-!Datasets/final_files/*.parquet
+# !Datasets/
+# !Datasets/final_files/
+# !Datasets/final_files/*.parquet
 
 # Ignore .env (contains api keys)
 .env
