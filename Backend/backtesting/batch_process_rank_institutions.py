@@ -32,11 +32,15 @@ APPLY_COVERAGE_FILTER = False
 COVERAGE_THRESHOLD = 0.80
 
 # If True, unmatched weight earns 0% return (recommended baseline).
-# If False, matched names are renormalized to 100%.
-MISSING_WEIGHT_AS_CASH = True
+# If False, matched names are renormalized to 100%. 
+# Select False as recommended by Prof 
+MISSING_WEIGHT_AS_CASH = False
 
 RISK_FREE_RATE = 0.0
 
+# Carry the most recent disclosed portfolio forward to this backtest cut-off
+# date when there is no subsequent filing-based rebalance yet.
+BACKTEST_END_DATE = pd.Timestamp("2026-03-31")
 
 # =========================================================
 # HELPERS
@@ -113,7 +117,6 @@ def load_13f_data(df_raw: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     filing_col = first_existing_column(df_raw, ["FILING_DATE"])
     sub_type_col = first_existing_column(df_raw, ["SUBMISSIONTYPE"], required=False)
     manager_col = first_existing_column(df_raw, ["FILINGMANAGER_NAME"], required=False)
-    confidential_col = first_existing_column(df_raw, ["ISCONFIDENTIALOMITTED"], required=False)
     issuer_col = first_existing_column(df_raw, ["NAMEOFISSUER"], required=False)
     cusip_col = first_existing_column(df_raw, ["CUSIP"], required=False)
     value_col = first_existing_column(df_raw, ["VALUE"])
@@ -121,7 +124,6 @@ def load_13f_data(df_raw: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     exch_code_col = first_existing_column(df_raw, ["exchCode", "EXCHCODE", "EXCH code", "EXCH CODE"])
     sshprnamt_type_col = first_existing_column(df_raw, ["SSHPRNAMTTYPE"], required=False)
     putcall_col = first_existing_column(df_raw, ["PUTCALL"], required=False)
-    discretion_col = first_existing_column(df_raw, ["INVESTMENTDISCRETION"], required=False)
     ticker_col = first_existing_column(df_raw, ["TICKER", "ticker", "MAPPED_TICKER", "mapped_ticker"], required=False)
 
     if ticker_col is None:
@@ -141,6 +143,10 @@ def load_13f_data(df_raw: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     out["exchCode"] = out[exch_code_col]
 
     if sub_type_col:
+        print("SUBMISSIONTYPE values:")
+        print(df_raw[sub_type_col].astype(str).str.upper().value_counts(dropna=False).head(20))
+
+    if sub_type_col:
         out = out[out[sub_type_col].astype(str).str.upper().isin(["13F-HR", "13F-HR/A"])].copy()
 
     out = out[out["security_type"].astype(str).str.strip().str.upper().eq("COMMON STOCK")].copy()
@@ -154,20 +160,21 @@ def load_13f_data(df_raw: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
         putcall_series = out[putcall_col].astype(str).str.upper().str.strip()
         out = out[(out[putcall_col].isna()) | (putcall_series.eq(""))].copy()
 
-    if discretion_col:
-        disc = out[discretion_col].astype(str).str.upper().str.strip()
-        keep_sole = disc.eq("SOLE")
-        if keep_sole.sum() > 0:
-            out = out[keep_sole].copy()
-
-    if confidential_col:
-        out["_confidential"] = out[confidential_col].map(parse_boolish)
-    else:
-        out["_confidential"] = False
+    # Discretion filter removed: a copycat investor replicates the full
+    # disclosed portfolio regardless of how discretion is categorised
+    # (SOLE / SHARED / DEFINED).  Keeping all types gives the true total
+    # position per stock.
 
     out["is_us_exchange"] = out["exchCode"].astype(str).str.strip().str.upper().eq("US")
 
-    out = out.dropna(subset=["CIK", "PERIODOFREPORT", "FILING_DATE", "VALUE", "ticker_bt"]).copy()
+    # Drop rows missing essential identifiers or with no economic value.
+    # NOTE: ticker_bt is deliberately NOT required here.  Holdings without
+    # a mapped ticker still contribute to the portfolio-value denominator
+    # so that weights reflect the full disclosed portfolio.  The backtest
+    # return calculation will simply not be able to price those names and
+    # the single renormalisation (MISSING_WEIGHT_AS_CASH=False) handles
+    # the gap at that stage.
+    out = out.dropna(subset=["CIK", "PERIODOFREPORT", "FILING_DATE", "VALUE"]).copy()
     out = out[out["VALUE"] > 0].copy()
     out = out[out["PERIODOFREPORT"].dt.year >= START_YEAR].copy()
 
@@ -193,26 +200,32 @@ def load_13f_data(df_raw: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
 def build_quarter_holdings(df_13f: pd.DataFrame) -> pd.DataFrame:
     """
     Build fund-quarter holdings and weights using US-only common stocks.
-    Weight = VALUE / total VALUE of US common-stock holdings in that fund-quarter.
+    Weight = VALUE / total VALUE of ALL disclosed common-stock holdings in
+    that fund-quarter (including those without a mapped ticker).
+
+    This ensures the denominator reflects the full disclosed portfolio so
+    that the priced-weight renormalisation at return time is the single
+    point where unmapped / unpriceable holdings are handled.
     """
     quarter_keys = ["CIK", "PERIODOFREPORT", "FILING_DATE"]
 
-    confidential_quarters = df_13f.groupby(quarter_keys, as_index=False)["_confidential"].max()
-    bad_quarters = confidential_quarters[confidential_quarters["_confidential"]].copy()
-    if not bad_quarters.empty:
-        bad_quarters["_drop"] = 1
-        df_13f = df_13f.merge(bad_quarters[quarter_keys + ["_drop"]], on=quarter_keys, how="left")
-        df_13f = df_13f[df_13f["_drop"].isna()].copy().drop(columns="_drop")
+    # Confidential holdings are kept — they still contribute to the
+    # portfolio denominator.  If they have a valid ticker they will be
+    # priced normally; if not, the renormalisation handles them.
 
-    holdings = (
-        df_13f.groupby(quarter_keys + ["FILINGMANAGER_NAME", "ticker_bt"], as_index=False)["VALUE"]
-        .sum()
-    )
-
+    # Aggregate VALUE across all holdings (including NaN tickers) for the
+    # denominator.
     quarter_totals = (
-        holdings.groupby(quarter_keys, as_index=False)["VALUE"]
+        df_13f.groupby(quarter_keys, as_index=False)["VALUE"]
         .sum()
         .rename(columns={"VALUE": "us_common_stock_value_total"})
+    )
+
+    # Now group only rows that have a usable ticker for the backtest.
+    has_ticker = df_13f.dropna(subset=["ticker_bt"]).copy()
+    holdings = (
+        has_ticker.groupby(quarter_keys + ["FILINGMANAGER_NAME", "ticker_bt"], as_index=False)["VALUE"]
+        .sum()
     )
 
     holdings = holdings.merge(quarter_totals, on=quarter_keys, how="left")
@@ -283,6 +296,8 @@ class PeriodResult:
     FILINGMANAGER_NAME: str
     holding_period_start: pd.Timestamp
     holding_period_end: pd.Timestamp
+    holding_period_end_source: str
+    is_terminal_period: bool
     source_periodofreport: pd.Timestamp
     source_filing_date: pd.Timestamp
     priced_weight: float
@@ -431,6 +446,7 @@ def run_backtest(
     return_price_col: str,
     apply_coverage_filter: bool = False,
     coverage_threshold: float = 0.80,
+    backtest_end_date: pd.Timestamp | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     For each institution / CIK:
@@ -439,7 +455,8 @@ def run_backtest(
     - candidate portfolio uses VALUE weights over US common stocks
     - enter after that manager's filing becomes public
     - hold until that SAME manager's next filing-based rebalance date
-    - drop the manager's last observed filing-period if there is no next filing yet
+    - if there is no next filing yet, carry the last disclosed portfolio forward
+      to the configured backtest cut-off date (rather than dropping it)
     - raw_open is used only to verify that an entry-day market open exists
     - period return is measured using adjusted-open to adjusted-open valuation
     """
@@ -461,12 +478,26 @@ def run_backtest(
     )
     quarter_meta = quarter_meta.dropna(subset=["rebalance_date"]).copy()
 
+    if backtest_end_date is None:
+        effective_backtest_end = trading_dates.max()
+    else:
+        effective_backtest_end = pd.Timestamp(backtest_end_date).normalize()
+        eligible_end_dates = trading_dates[trading_dates <= effective_backtest_end]
+        if len(eligible_end_dates) == 0:
+            raise ValueError("Configured backtest_end_date is earlier than the first available trading date.")
+        effective_backtest_end = eligible_end_dates.max()
+
     # Next rebalance is computed strictly within the same CIK/manager history.
     quarter_meta["next_rebalance_date"] = quarter_meta.groupby("CIK", sort=False)["rebalance_date"].shift(-1)
+    quarter_meta["is_terminal_period"] = quarter_meta["next_rebalance_date"].isna()
+    quarter_meta["holding_period_end"] = quarter_meta["next_rebalance_date"].fillna(effective_backtest_end)
+    quarter_meta["holding_period_end_source"] = np.where(
+        quarter_meta["is_terminal_period"],
+        "backtest_end_date",
+        "next_rebalance_date",
+    )
 
-    # Exclude the manager's last observed filing-period if there is no next filing-based rebalance.
-    quarter_meta = quarter_meta.dropna(subset=["next_rebalance_date"]).copy()
-    quarter_meta = quarter_meta[quarter_meta["next_rebalance_date"] > quarter_meta["rebalance_date"]].copy()
+    quarter_meta = quarter_meta[quarter_meta["holding_period_end"] > quarter_meta["rebalance_date"]].copy()
     quarter_meta = quarter_meta.sort_values(["CIK", "rebalance_date", "PERIODOFREPORT"]).reset_index(drop=True)
 
     holdings_lookup = {
@@ -490,7 +521,7 @@ def run_backtest(
                 portfolio=candidate,
                 price_map=price_map,
                 period_start=q.rebalance_date,
-                period_end=q.next_rebalance_date,
+                period_end=q.holding_period_end,
                 trade_entry_col=trade_entry_col,
                 return_price_col=return_price_col,
             )
@@ -502,7 +533,7 @@ def run_backtest(
                 portfolio=candidate,
                 price_map=price_map,
                 period_start=q.rebalance_date,
-                period_end=q.next_rebalance_date,
+                period_end=q.holding_period_end,
                 trade_entry_col=trade_entry_col,
                 return_price_col=return_price_col,
             )
@@ -512,7 +543,9 @@ def run_backtest(
                     CIK=q.CIK,
                     FILINGMANAGER_NAME=fund_name,
                     holding_period_start=q.rebalance_date,
-                    holding_period_end=q.next_rebalance_date,
+                    holding_period_end=q.holding_period_end,
+                    holding_period_end_source=q.holding_period_end_source,
+                    is_terminal_period=bool(q.is_terminal_period),
                     source_periodofreport=q.PERIODOFREPORT,
                     source_filing_date=q.FILING_DATE,
                     priced_weight=float(realized_priced_weight),
@@ -558,6 +591,8 @@ def run_backtest(
                 "n_periods": n_periods,
                 "start_date": start_dt,
                 "end_date": end_dt,
+                "last_periodofreport": g["source_periodofreport"].max(),
+                "last_filing_date": g["source_filing_date"].max(),
                 "cumulative_return": cumulative,
                 "CAGR": cagr,
                 "mean_period_return": mean_period,
@@ -606,6 +641,7 @@ def main() -> None:
         return_price_col=return_price_col,
         apply_coverage_filter=APPLY_COVERAGE_FILTER,
         coverage_threshold=COVERAGE_THRESHOLD,
+        backtest_end_date=BACKTEST_END_DATE,
     )
 
     periods_path = OUTPUT_DIR / "institution_backtest_periods_us_raw_open_checked_adj_open_returns.csv"
@@ -623,7 +659,7 @@ def main() -> None:
     print(f"Return measurement price column used: {return_price_col} (derived adjusted-open)")
     print("Economic return calculation is adjusted-open to adjusted-open.")
     print(f"Entry lag (trading days after filing): {ENTRY_LAG_TRADING_DAYS}")
-    print("Last observed filing-period per manager is excluded when no next rebalance exists.")
+    print(f"Terminal disclosed portfolios are carried forward to the backtest cut-off date: {BACKTEST_END_DATE.date()}")
     print(f"Coverage filter applied: {APPLY_COVERAGE_FILTER}")
     if APPLY_COVERAGE_FILTER:
         print(f"Coverage threshold: {COVERAGE_THRESHOLD:.0%}")
@@ -641,6 +677,7 @@ def main() -> None:
         "CIK",
         "FILINGMANAGER_NAME",
         "n_periods",
+        "last_periodofreport",
         "cumulative_return",
         "CAGR",
         "avg_priced_weight",
