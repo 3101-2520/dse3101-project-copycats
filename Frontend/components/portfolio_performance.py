@@ -403,6 +403,8 @@ def portfolio_performance():
     downside_std = np.sqrt((downside ** 2).mean()) if len(downside) > 0 else 0
     sortino = (excess.mean() / downside_std) * np.sqrt(252) if downside_std != 0 else 0
     
+    sortino = (excess.mean() / downside_std) * np.sqrt(252) if downside_std != 0 else 0
+    
     metrics = [
         ("Sharpe Ratio", sharpe, "number"),          # keep placeholder or backend later
         ("Sortino Ratio", sortino, "number"),         # placeholder
