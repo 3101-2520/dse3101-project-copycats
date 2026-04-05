@@ -1,5 +1,10 @@
-import sys
+from datetime import date
 from pathlib import Path
+import sys
+
+from datetime import date
+from pathlib import Path
+import sys
 
 import pandas as pd
 import streamlit as st
@@ -7,11 +12,11 @@ import streamlit as st
 ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT_DIR))
 
-from components.top_20 import top_20_table, render_stock_details
 from Backend.backtesting.batch_process_rank_stocks import main
-from components.daily_returns import daily_returns
 from components.cumulative_returns import cumulative_returns
+from components.daily_returns import daily_returns
 from components.performance_metrics import performance_metrics
+from components.top_20 import render_stock_details, top_20_table
 
 try:
     from components.portfolio_performance import portfolio_performance
@@ -19,28 +24,20 @@ try:
 except Exception as e:
     portfolio_performance = None
     portfolio_performance_import_error = e
+
 
 STOCK_SNAPSHOT_PATH = ROOT_DIR / "Datasets" / "final_files" / "stock_snapshot.parquet"
+SPY_PATH = ROOT_DIR / "Datasets" / "final_files" / "spy_prices_2013-01-01_to_2026-03-31.parquet"
 
-stock_snapshot_df = None
-if STOCK_SNAPSHOT_PATH.exists():
-    stock_snapshot_df = pd.read_parquet(STOCK_SNAPSHOT_PATH)
-
-
-try:
-    from components.portfolio_performance import portfolio_performance
-    portfolio_performance_import_error = None
-except Exception as e:
-    portfolio_performance = None
-    portfolio_performance_import_error = e
+stock_snapshot_df = pd.read_parquet(STOCK_SNAPSHOT_PATH) if STOCK_SNAPSHOT_PATH.exists() else None
+spy_df = pd.read_parquet(SPY_PATH) if SPY_PATH.exists() else None
 
 
 def get_available_quarter_dates():
     possible_files = [
         ROOT_DIR / "Datasets" / "final_files" / "final_top10_form13f.parquet",
         ROOT_DIR / "Datasets" / "final_files" / "final_top20_form13f.parquet",
-        ROOT_DIR / "Datasets" / "final_files" / "final_top30_form13f.parquet",
-    ]
+        ROOT_DIR / "Datasets" / "final_files" / "final_top30_form13f.parquet",]
 
     holdings_df = None
     for file_path in possible_files:
@@ -49,20 +46,15 @@ def get_available_quarter_dates():
             break
 
     if holdings_df is None:
-        raise FileNotFoundError(
-            "No form13f parquet file found in Datasets/final_files."
-        )
+        raise FileNotFoundError("No form13f parquet file found in Datasets/final_files.")
 
     holdings_df.columns = [col.lower() for col in holdings_df.columns]
 
     if "periodofreport" not in holdings_df.columns:
         raise ValueError(
-            f"'PERIODOFREPORT' column not found. Columns are: {holdings_df.columns.tolist()}"
-        )
+            f"'PERIODOFREPORT' column not found. Columns are: {holdings_df.columns.tolist()}")
 
-    parsed_dates = pd.to_datetime(
-        holdings_df["periodofreport"], errors="coerce"
-    ).dropna()
+    parsed_dates = pd.to_datetime(holdings_df["periodofreport"], errors="coerce").dropna()
 
     if parsed_dates.empty:
         raise ValueError("Could not parse any valid dates from PERIODOFREPORT.")
@@ -71,16 +63,18 @@ def get_available_quarter_dates():
         {
             d.date()
             for d in parsed_dates
-            if (d.month, d.day) in [(3, 31), (6, 30), (9, 30), (12, 31)]
-        }
-    )
+            if (d.month, d.day) in [(3, 31), (6, 30), (9, 30), (12, 31)]})
 
+    max_allowed_end = date(2026, 3, 31)
+    if max_allowed_end not in quarter_dates:
+        quarter_dates.append(max_allowed_end)
+
+    quarter_dates = sorted(quarter_dates)
     return quarter_dates
 
 
 st.set_page_config(page_title="dse3101 project", layout="wide")
 st.title("Dashboard")
-
 
 try:
     quarter_end_dates = get_available_quarter_dates()
@@ -88,48 +82,47 @@ except Exception as e:
     st.error(f"Error loading available quarter dates: {e}")
     st.stop()
 
-if len(quarter_end_dates) < 2:
+if len(quarter_end_dates) < 3:
     st.error("Not enough available quarter dates found in backend data.")
     st.stop()
 
 c1, c2, c3, c4, c5, c6 = st.columns([0.20, 0.18, 0.18, 0.18, 0.13, 0.13])
+
 with c1:
     initial_capital = st.number_input(
         "Initial Capital ($)",
         min_value=0,
         value=10000,
         step=1000,
-        key="initial_capital",
-    )
+        key="initial_capital",)
 
 with c2:
     cost_rate = st.number_input(
         "Fees per dollar value of transaction ($)",
         min_value=0.0,
-        value=0.0,
-        step=0.1,
-        key="fee_per_trade",
-    )
+        value=0.001,
+        step=0.001,
+        format="%.3f",
+        key="fee_per_trade",)
 
 with c3:
-    start_date_options = quarter_end_dates[:-1]
+    start_date_options = quarter_end_dates[:-2]
     from_date = st.selectbox(
         "From:",
         options=start_date_options,
         index=0,
         format_func=lambda d: d.strftime("%Y-%m-%d"),
-        key="from_date",
-    )
+        key="from_date",)
 
 with c4:
-    valid_to_dates = [d for d in quarter_end_dates if d > from_date]
+    from_idx = quarter_end_dates.index(from_date)
+    valid_to_dates = quarter_end_dates[from_idx + 2:]
     to_date = st.selectbox(
         "To:",
         options=valid_to_dates,
         index=len(valid_to_dates) - 1,
         format_func=lambda d: d.strftime("%Y-%m-%d"),
-        key="to_date",
-    )
+        key="to_date",)
 
 with c5:
     topN = st.number_input(
@@ -138,16 +131,14 @@ with c5:
         max_value=50,
         value=10,
         step=1,
-        key="topN",
-    )
+        key="topN",)
 
 with c6:
     topN_institutions = st.selectbox(
         "Top N Institutions",
         options=[10, 20, 30],
         index=0,
-        key="topN_institutions",
-    )
+        key="topN_institutions",)
 
 portfolio_df = None
 metrics_df = None
@@ -158,46 +149,66 @@ try:
             userinput_start_date=from_date.strftime("%Y-%m-%d"),
             userinput_end_date=to_date.strftime("%Y-%m-%d"),
             userinput_initial_capital=float(initial_capital),
-            userinput_topN_stocks=int(topN),
-        )
+            userinput_topN_stocks=int(topN),)
+
+        if portfolio_df is not None and spy_df is not None:
+            portfolio_df = portfolio_df.copy()
+            portfolio_df["date"] = pd.to_datetime(portfolio_df["date"]).dt.normalize()
+
+            spy_merge = spy_df.copy()
+            spy_merge["date"] = pd.to_datetime(spy_merge["date"]).dt.normalize()
+
+            spy_merge = (
+                spy_merge[spy_merge["ticker"].astype(str).str.upper() == "SPY"][["date", "adj_close"]]
+                .drop_duplicates(subset=["date"])
+                .rename(columns={"adj_close": "spy_price"}))
+
+            portfolio_df = portfolio_df.merge(spy_merge, on="date", how="left")
+
+            valid_spy = portfolio_df["spy_price"].dropna()
+            if not valid_spy.empty:
+                first_spy_price = valid_spy.iloc[0]
+                portfolio_df["spy_value"] = (
+                    portfolio_df["spy_price"] / first_spy_price) * float(initial_capital)
+
 except Exception as e:
     st.error(f"Error running backend: {e}")
 
-# main layout
 col_left, col_right = st.columns([3, 1])
-
 selected_tickers = None
 
 with col_left:
-    #st.header("Portfolio Performance")
-    a, b, c = st.tabs(["Portfolio Performance", "Daily Returns", "Cumulative Returns"])
-    with a:  
+    tab1, tab2, tab3 = st.tabs(["Portfolio Performance", "Daily Returns", "Cumulative Returns"])
+
+    with tab1:
         if portfolio_df is not None:
             portfolio_performance(portfolio_df, metrics_df)
         else:
             st.warning("Portfolio Performance component could not be loaded.")
             st.caption(str(portfolio_performance_import_error))
-    with b:
+
+    with tab2:
         if portfolio_df is not None:
             daily_returns(portfolio_df)
         else:
             st.info("No portfolio data available yet.")
-    with c:
+
+    with tab3:
         if portfolio_df is not None:
             cumulative_returns(portfolio_df)
         else:
             st.info("No portfolio data available yet.")
+
     st.markdown("---")
     performance_metrics(portfolio_df, metrics_df)
 
 with col_right:
-    st.header("Top Stocks by Institutional Holdings")
     if portfolio_df is not None:
         selected_tickers = top_20_table(
             portfolio_df,
             top_n=int(topN),
-            selected_quarter=from_date.strftime("%Y-%m-%d")
-        )
+            top_m_institutions=int(topN_institutions),
+            fee_per_dollar=float(cost_rate),)
     else:
         st.info("No holdings data yet.")
 

@@ -118,38 +118,87 @@ def get_stock_details(selected_ticker, stock_snapshot_df):
         "Ex-Dividend Date": format_value(stock_row["ex_dividend_date"], "date"),
     }
 
-def top_20_table(portfolio_df, top_n=10, selected_quarter=None):
+def top_20_table(portfolio_df, top_n=10, top_m_institutions=10, fee_per_dollar=None):
     if portfolio_df is None or portfolio_df.empty:
         st.info("No holdings data available.")
         return None
 
-    df = portfolio_df.copy()
+    clicked_date = st.session_state.get("selected_chart_date")
+    clicked_tickers = st.session_state.get("selected_chart_tickers")
 
-    if "tickers" not in df.columns:
-        st.info("No ticker data available.")
-        return None
-
-    df["quarter"] = pd.to_datetime(df["quarter"], errors="coerce")
-    df = df.dropna(subset=["quarter"])
-    df["quarter_str"] = df["quarter"].dt.strftime("%Y-%m-%d")
-
-    if selected_quarter is not None and selected_quarter in df["quarter_str"].values:
-        selected_df = df[df["quarter_str"] == selected_quarter]
-        selected_row = selected_df.iloc[0]
-        st.caption(f"Showing selected quarter: {selected_quarter}")
+    # use exact clicked tickers from chart
+    if isinstance(clicked_tickers, list) and len(clicked_tickers) > 0:
+        tickers = clicked_tickers
+        selected_date_display = clicked_date
     else:
-        latest_quarter = df["quarter"].max()
-        selected_df = df[df["quarter"] == latest_quarter]
-        selected_row = selected_df.iloc[0]
-        st.caption(f"Showing latest available quarter: {latest_quarter.strftime('%Y-%m-%d')}")
+        df = portfolio_df.copy()
+        default_to_date = st.session_state.get("to_date")
 
-    tickers = selected_row["tickers"]
+        if "quarter" in df.columns:
+            df["quarter"] = pd.to_datetime(df["quarter"], errors="coerce")
+            df = df.dropna(subset=["quarter"])
+            df["quarter_str"] = df["quarter"].dt.strftime("%Y-%m-%d")
+
+            if default_to_date is not None:
+                default_to_date_str = pd.to_datetime(default_to_date).strftime("%Y-%m-%d")
+                matched = df[df["quarter_str"] == default_to_date_str]
+                if not matched.empty:
+                    selected_row = matched.iloc[0]
+                else:
+                    selected_row = df.sort_values("quarter").iloc[-1]
+            else:
+                selected_row = df.sort_values("quarter").iloc[-1]
+
+            selected_date_display = selected_row["quarter"].strftime("%Y-%m-%d")
+
+        elif "date" in df.columns:
+            df["date"] = pd.to_datetime(df["date"], errors="coerce")
+            df = df.dropna(subset=["date"])
+            df["date_str"] = df["date"].dt.strftime("%Y-%m-%d")
+
+            if default_to_date is not None:
+                default_to_date_str = pd.to_datetime(default_to_date).strftime("%Y-%m-%d")
+                matched = df[df["date_str"] == default_to_date_str]
+                if not matched.empty:
+                    selected_row = matched.iloc[0]
+                else:
+                    selected_row = df.sort_values("date").iloc[-1]
+            else:
+                selected_row = df.sort_values("date").iloc[-1]
+
+            selected_date_display = selected_row["date"].strftime("%Y-%m-%d")
+
+        else:
+            st.info("No date information available.")
+            return None
+
+        tickers = selected_row["tickers"]
+
+        if "quarter" in df.columns:
+            df["quarter"] = pd.to_datetime(df["quarter"], errors="coerce")
+            df = df.dropna(subset=["quarter"])
+            selected_row = df.sort_values("quarter").iloc[-1]
+            selected_date_display = selected_row["quarter"].strftime("%Y-%m-%d")
+        elif "date" in df.columns:
+            df["date"] = pd.to_datetime(df["date"], errors="coerce")
+            df = df.dropna(subset=["date"])
+            selected_row = df.sort_values("date").iloc[-1]
+            selected_date_display = selected_row["date"].strftime("%Y-%m-%d")
+        else:
+            st.info("No date information available.")
+            return None
+
+        tickers = selected_row["tickers"]
 
     if not isinstance(tickers, list) or len(tickers) == 0:
-        st.info("No tickers available for this quarter.")
+        st.info("No tickers available for this period.")
         return None
 
     tickers = tickers[:top_n]
+
+    st.markdown(f"### Top {top_n} Stocks based on Top {top_m_institutions} Institution Holdings")
+    st.caption(f"Selected quarter: {selected_date_display}")
+    st.caption(f"Fees per dollar value of transaction ($): {fee_per_dollar}")
 
     display_df = pd.DataFrame({
         "Rank": range(1, len(tickers) + 1),

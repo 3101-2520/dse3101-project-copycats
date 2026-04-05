@@ -66,8 +66,10 @@ def portfolio_performance(portfolio_df, metrics_df):
 
     portfolio_dates = pd.to_datetime(portfolio_df["date"])
     portfolio_values = portfolio_df["portfolio_value"].tolist()
-    #spy_values = portfolio_df["spy_value"].tolist()
-    spy_values = portfolio_values.copy() # Dummy, until spy_values added in backend
+    if "spy_value" in portfolio_df.columns:
+        spy_values = portfolio_df["spy_value"].tolist()
+    else:
+        spy_values = portfolio_values.copy()
     
     if from_date is None or to_date is None:
         st.warning("Please select date range")
@@ -99,45 +101,6 @@ def portfolio_performance(portfolio_df, metrics_df):
     tickers = list(tickers)
     holding_periods = list(holding_periods)
 
-    trade_lines = []
-    seen_buy_dates = set()
-    seen_sell_dates = set()
-
-    for hp in holding_periods:
-        if not hp or " to " not in str(hp):
-            continue
-
-        buy_date, sell_date = [x.strip() for x in str(hp).split(" to ", 1)]
-
-        if buy_date and buy_date not in seen_buy_dates:
-            seen_buy_dates.add(buy_date)
-            trade_lines.append({
-                "xAxis": buy_date,
-                "lineStyle": {
-                    "type": "dashed",
-                    "width": 1.5,
-                    "opacity": 0.8,
-                    "color": "#22c55e"   # green = buy
-                },
-                "label": {
-                    "show": False
-                }
-            })
-
-        if sell_date and sell_date not in seen_sell_dates:
-            seen_sell_dates.add(sell_date)
-            trade_lines.append({
-                "xAxis": sell_date,
-                "lineStyle": {
-                    "type": "dashed",
-                    "width": 1.5,
-                    "opacity": 0.8,
-                    "color": "#ef4444"   # red = sell
-                },
-                "label": {
-                    "show": False
-                }
-            })
 
     if use_log_scale:
         portfolio_plot = log_returns(portfolio_values)
@@ -228,12 +191,7 @@ def portfolio_performance(portfolio_df, metrics_df):
                         "borderWidth": 2
                     }
                 },
-                "data": portfolio_series_data,
-                "markLine": {
-                    "symbol": ["none", "none"],
-                    "silent": True,
-                    "data": trade_lines
-                }
+                "data": portfolio_series_data
             }
         ]
 
@@ -265,12 +223,7 @@ def portfolio_performance(portfolio_df, metrics_df):
                         "borderWidth": 2
                     }
                 },
-                "data": portfolio_series_data,
-                "markLine": {
-                    "symbol": ["none", "none"],
-                    "silent": True,
-                    "data": trade_lines
-                }
+                "data": portfolio_series_data
             }
         ]
 
@@ -310,11 +263,6 @@ def portfolio_performance(portfolio_df, metrics_df):
                 "restore": {},
                 "dataZoom": {}
             }
-        },
-        "markLine": {
-            "symbol": ["none", "none"],
-            "silent": True,
-            "data": trade_lines
         },
         "xAxis": {
             "type": "category",
@@ -364,9 +312,6 @@ def portfolio_performance(portfolio_df, metrics_df):
                 st.session_state["selected_chart_index"] = idx
                 st.session_state["selected_chart_date"] = portfolio_dates[idx]
                 st.session_state["selected_chart_tickers"] = tickers[idx]
-
-    if st.session_state.get("selected_chart_date"):
-        st.caption(f"Selected point: {st.session_state['selected_chart_date']}")
 
     # DEBUG
     #st.write("Stored index:", st.session_state.get("selected_chart_index"))
