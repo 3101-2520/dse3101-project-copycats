@@ -139,7 +139,7 @@ def portfolio_performance(portfolio_df):
     for val, show in zip(portfolio_plot, show_label):
         point = {
             "value": val,
-            "symbolSize": 16 if show else 0,
+            "symbolSize": 10 if show else 0,
         }
         portfolio_series_data.append(point)
 
@@ -208,7 +208,7 @@ def portfolio_performance(portfolio_df):
                 "yAxisIndex": 0,
                 "smooth": False,
                 "symbol": "circle",
-                "symbolSize": 16,
+                "symbolSize": 10,
                 "selectedMode": "single",
                 "select": {
                     "itemStyle": {
