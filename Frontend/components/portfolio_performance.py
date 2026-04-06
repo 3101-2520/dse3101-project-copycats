@@ -7,6 +7,7 @@ from streamlit_echarts import st_echarts, JsCode
 import pandas as pd
 from Backend.backtesting.batch_process_rank_stocks import main
 import numpy as np
+import json
 
 #---------- Function to load data from backend ----------
 @st.cache_data
@@ -88,6 +89,10 @@ def portfolio_performance(portfolio_df):
         )
         if from_date <= d <= to_date
     ]
+    #----- DEBUG TO SHOW SELECTED DATES -----
+    #st.write("Requested range:", from_date, "to", to_date)
+    #st.write("First filtered date:", filtered[0][0] if filtered else None)
+    #st.write("Last filtered date:", filtered[-1][0] if filtered else None)
 
     if not filtered:
         st.warning("No data available for the selected date range")
@@ -101,6 +106,27 @@ def portfolio_performance(portfolio_df):
     tickers = list(tickers)
     holding_periods = list(holding_periods)
 
+    portfolio_dates_dt = pd.to_datetime(portfolio_dates)
+
+    show_label = [False] * len(portfolio_dates_dt)
+
+    for i, d in enumerate(portfolio_dates_dt):
+        is_first = (i == 0)
+        is_last = (i == len(portfolio_dates_dt) - 1)
+
+        month = d.month
+        is_quarter_month = month in [3, 6, 9, 12]
+
+        is_last_of_month = (
+            i == len(portfolio_dates_dt) - 1
+            or portfolio_dates_dt[i + 1].month != d.month
+            or portfolio_dates_dt[i + 1].year != d.year
+        )
+
+        if is_first or is_last or (is_quarter_month and is_last_of_month):
+            show_label[i] = True
+
+    show_label_js = json.dumps(show_label)
 
     if use_log_scale:
         portfolio_plot = log_returns(portfolio_values)
@@ -110,10 +136,10 @@ def portfolio_performance(portfolio_df):
         spy_plot = spy_values
 
     portfolio_series_data = []
-    for val in portfolio_plot:
+    for val, show in zip(portfolio_plot, show_label):
         point = {
             "value": val,
-            "symbolSize": 16,
+            "symbolSize": 16 if show else 0,
         }
         portfolio_series_data.append(point)
 
@@ -182,7 +208,7 @@ def portfolio_performance(portfolio_df):
                 "yAxisIndex": 0,
                 "smooth": False,
                 "symbol": "circle",
-                "symbolSize": 18,
+                "symbolSize": 16,
                 "selectedMode": "single",
                 "select": {
                     "itemStyle": {
@@ -202,7 +228,7 @@ def portfolio_performance(portfolio_df):
                 "yAxisIndex": 0,
                 "smooth": False,
                 "symbol": "circle",
-                "symbolSize": 7,
+                "symbolSize": 0,
                 "data": spy_plot,
             })
 
@@ -214,7 +240,7 @@ def portfolio_performance(portfolio_df):
                 "yAxisIndex": 0,
                 "smooth": False,
                 "symbol": "circle",
-                "symbolSize": 18,
+                "symbolSize": 16,
                 "selectedMode": "single",
                 "select": {
                     "itemStyle": {
@@ -234,7 +260,7 @@ def portfolio_performance(portfolio_df):
                 "yAxisIndex": 1,
                 "smooth": False,
                 "symbol": "circle",
-                "symbolSize": 7,
+                "symbolSize": 0,
                 "data": spy_plot,
             })
     legend_data = ["Portfolio"]
@@ -269,12 +295,17 @@ def portfolio_performance(portfolio_df):
             "boundaryGap": False,
             "data": portfolio_dates,
             "axisLabel": {
-                "interval": "auto",
+                "interval": 0,
+                "showMinLabel": True,
+                "showMaxLabel": True,
+                "hideOverlap": True,
+                "fontSize": 10,
                 "formatter": JsCode(
-                    """
-                    function (value) {
-                        return value.slice(0, 7);
-                    }
+                    f"""
+                    function (value, index) {{
+                        const showLabel = {show_label_js};
+                        return showLabel[index] ? value.slice(0, 7) : "";
+                    }}
                     """
                 )
             }
