@@ -27,6 +27,23 @@ def cumulative_returns(portfolio_df: pd.DataFrame):
     dates = df["date"].dt.strftime("%Y-%m-%d").tolist()
     values = (df["cum_return"] * 100).tolist()
 
+    plot_dates = [dates[0]]
+    plot_values = [values[0]]
+
+    for i in range(1, len(values)):
+        prev_val = values[i - 1]
+        curr_val = values[i]
+
+        if prev_val * curr_val < 0:
+            plot_dates.append(f"{dates[i]}_zero")
+            plot_values.append(0)
+
+        plot_dates.append(dates[i])
+        plot_values.append(curr_val)
+
+    positive_values = [max(v, 0) for v in plot_values]
+    negative_values = [min(v, 0) for v in plot_values]
+
     series_data = [{"value": v, "symbolSize": 16} for v in values]
 
     chart_min = min(values)
@@ -49,10 +66,15 @@ def cumulative_returns(portfolio_df: pd.DataFrame):
         "xAxis": {
             "type": "category",
             "boundaryGap": False,
-            "data": dates,
+            "data": plot_dates,
             "axisLabel": {
                 "formatter": JsCode(
-                    "function (value) { return value.slice(0, 7); }"
+                    """
+                    function (value) {
+                        if (value.endsWith('_zero')) return '';
+                        return value.slice(0, 7);
+                    }
+                    """
                 )
             }
         },
@@ -68,13 +90,54 @@ def cumulative_returns(portfolio_df: pd.DataFrame):
             }
         }],
         "dataZoom": [{"type": "inside"}, {"type": "slider"}],
-        "series": [{
-            "name": "Cumulative Return",
-            "type": "line",
-            "symbol": "circle",
-            "symbolSize": 18,
-            "data": series_data,
-        }]
+        "series": [
+            {
+                "name": "Positive Area",
+                "type": "line",
+                "data": positive_values,
+                "symbol": "none",
+                "lineStyle": {"opacity": 0},
+                "areaStyle": {
+                    "color": "#00C853",
+                    "opacity": 0.45
+                },
+                "z": 1
+            },
+            {
+                "name": "Negative Area",
+                "type": "line",
+                "data": negative_values,
+                "symbol": "none",
+                "lineStyle": {"opacity": 0},
+                "areaStyle": {
+                    "color": "#FF1744",
+                    "opacity": 0.45
+                },
+                "z": 1
+            },
+            {
+                "name": "Cumulative Return",
+                "type": "line",
+                "symbol": "circle",
+                "symbolSize": JsCode(
+                    """
+                    function (value, params) {
+                        return params.name.endsWith('_zero') ? 0 : 18;
+                    }
+                    """
+                ),
+                "data": plot_values,
+                "lineStyle": {
+                    "width": 2,
+                    "color": "#7EC8FF"
+                },
+                "itemStyle": {
+                    "color": "#7EC8FF",
+                    "borderColor": "#7EC8FF"
+                },
+                "z": 3
+            }
+        ]
     }
 
     st_echarts(chart_option, height="500px", key="cumulative_returns_chart")
