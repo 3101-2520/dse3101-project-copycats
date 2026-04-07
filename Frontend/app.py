@@ -1,4 +1,6 @@
 from datetime import date
+from dateutil.relativedelta import relativedelta
+import calendar
 from pathlib import Path
 import sys
 
@@ -35,57 +37,7 @@ spy_df = pd.read_parquet(SPY_PATH) if SPY_PATH.exists() else None
 st.set_page_config(page_title="dse3101 project", layout="wide")
 st.title("Dashboard")
 
-# helper functions 
-def get_available_quarter_dates():
-    possible_files = [
-        ROOT_DIR / "Datasets" / "final_files" / "final_top10_form13f.parquet",
-        ROOT_DIR / "Datasets" / "final_files" / "final_top20_form13f.parquet",
-        ROOT_DIR / "Datasets" / "final_files" / "final_top30_form13f.parquet",]
 
-    holdings_df = None
-    for file_path in possible_files:
-        if file_path.exists():
-            holdings_df = pd.read_parquet(file_path)
-            break
-
-    if holdings_df is None:
-        raise FileNotFoundError("No form13f parquet file found in Datasets/final_files.")
-
-    holdings_df.columns = [col.lower() for col in holdings_df.columns]
-
-    if "periodofreport" not in holdings_df.columns:
-        raise ValueError(
-            f"'PERIODOFREPORT' column not found. Columns are: {holdings_df.columns.tolist()}")
-
-    parsed_dates = pd.to_datetime(holdings_df["periodofreport"], errors="coerce").dropna()
-
-    if parsed_dates.empty:
-        raise ValueError("Could not parse any valid dates from PERIODOFREPORT.")
-
-    quarter_dates = sorted(
-        {
-            d.date()
-            for d in parsed_dates
-            if (d.month, d.day) in [(3, 31), (6, 30), (9, 30), (12, 31)]})
-
-    max_allowed_end = date(2026, 3, 31)
-    if max_allowed_end not in quarter_dates:
-        quarter_dates.append(max_allowed_end)
-
-    quarter_dates = sorted(quarter_dates)
-    return quarter_dates
-
-try:
-    quarter_end_dates = get_available_quarter_dates()
-except Exception as e:
-    st.error(f"Error loading available quarter dates: {e}")
-    st.stop()
-
-if len(quarter_end_dates) < 3:
-    st.error("Not enough available quarter dates found in backend data.")
-    st.stop()
-
-# user input configurations 
 c1, c2, c3, c4, c5, c6 = st.columns([0.20, 0.18, 0.18, 0.18, 0.13, 0.13])
 
 with c1:
@@ -108,38 +60,37 @@ with c2:
 MIN_START_DATE = date(2013, 8, 16)
 MAX_END_DATE = date(2026, 3, 31)
 
-MIN_START_DATE = date(2013, 8, 16)
-
 with c3:
-    start_date_options = [MIN_START_DATE] + quarter_end_dates[:-2]
-
-    from_date = st.selectbox(
+    from_date = st.date_input(
         "From:",
-        options=start_date_options,
-        index=0,
-        format_func=lambda d: d.strftime("%Y-%m-%d"),
-        key="from_date",)
+        value=MIN_START_DATE,
+        min_value=MIN_START_DATE,
+        max_value=MAX_END_DATE,
+        key="from_date",
+        format="YYYY-MM-DD",
+    )
+
+min_to_date = from_date + relativedelta(months=+6)
+
+if min_to_date > MAX_END_DATE:
+    st.error("No valid end date available. Please choose an earlier start date.")
+    st.stop()
 
 with c4:
-    if from_date in quarter_end_dates:
-        from_idx = quarter_end_dates.index(from_date)
-        valid_to_dates = quarter_end_dates[from_idx + 2:]
-    else:
-        valid_to_dates = quarter_end_dates[2:]
+    default_to_date = MAX_END_DATE if MAX_END_DATE >= min_to_date else min_to_date
 
-    # ensure max is always included
-    MAX_END_DATE = date(2026, 3, 31)
-    if MAX_END_DATE not in valid_to_dates:
-        valid_to_dates.append(MAX_END_DATE)
-
-    valid_to_dates = sorted(valid_to_dates)
-
-    to_date = st.selectbox(
+    to_date = st.date_input(
         "To:",
-        options=valid_to_dates,
-        index=len(valid_to_dates) - 1,
-        format_func=lambda d: d.strftime("%Y-%m-%d"),
-        key="to_date",)
+        value=default_to_date,
+        min_value=min_to_date,
+        max_value=MAX_END_DATE,
+        key="to_date",
+        format="YYYY-MM-DD",
+    )
+
+if to_date < min_to_date:
+    st.error("End date must be at least 6 months after the start date.")
+    st.stop()
 
 with c5:
     topN = st.number_input(
@@ -157,7 +108,7 @@ with c6:
         index=0,
         key="topN_institutions",)
 
-# load dfs
+
 portfolio_df = None
 metrics_df = None
 
@@ -193,11 +144,11 @@ try:
 except Exception as e:
     st.error(f"Error running backend: {e}")
 
-# configure layout of sections
+
 col_left, col_right = st.columns([7.7, 2.3])
 selected_tickers = None
 
-# left panel 
+
 with col_left:
     tab1, tab2, tab3 = st.tabs(["Portfolio Performance", "Daily Returns", "Cumulative Returns"])
 
@@ -224,7 +175,7 @@ with col_left:
     st.header("Performance Metrics")
     performance_metrics(portfolio_df, metrics_df)
 
-# right panel 
+
 with col_right:
     if portfolio_df is not None:
         selected_tickers = top_20_table(
