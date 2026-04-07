@@ -9,14 +9,6 @@
 
 ---
 
-## Quick Start (Development)
-1. Clone the repo and set up `.env` with `DEBUG=true`
-2. Activate your virtual environment
-3. `pip install -r requirements.txt`
-4. `python -m Backend.transform.batch_run.batch_process_form13f`
-
----
-
 ## Getting Started
 ### 1. Clone repo
 
