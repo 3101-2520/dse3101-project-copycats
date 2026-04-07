@@ -245,7 +245,35 @@ def portfolio_performance(portfolio_df: pd.DataFrame):
             "left": "center"
         },
         "tooltip": {
-            "show": False
+            "show": True,
+            "trigger": "axis",
+            "axisPointer": {
+                "type": "cross"
+            },
+            "formatter": JsCode(
+                """
+                function (params) {
+                    if (!params || params.length === 0) return '';
+
+                    const date = params[0].axisValue;
+                    let text = date + '<br/>';
+
+                    params.forEach(function(item) {
+                        let val = item.data;
+
+                        if (val && typeof val === 'object' && val.value !== undefined) {
+                            val = val.value;
+                        }
+
+                        if (typeof val === 'number') {
+                            text += item.marker + ' ' + item.seriesName + ': ' + val.toLocaleString() + '<br/>';
+                        }
+                    });
+
+                    return text;
+                }
+                """
+            )
         },
         "legend": {
             "data": legend_data,
