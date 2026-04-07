@@ -125,6 +125,7 @@ dse3101investmentproject/
 │   └── backtesting/
 │       ├── batch_process_rank_institutions.py ← main run function for backtesting of topM institutions
 │       └── batch_process_rank_stocks.py     ← main run function for backtesting of topN stocks (integration with frontend)
+│   └── batch_run_all_backend.py             ← main file to all batch_processes to get final_files for dashboard website
 ├── Frontend/
 │   ├── app.py                               ← main file to run dashboard
 │   ├── components/                          
