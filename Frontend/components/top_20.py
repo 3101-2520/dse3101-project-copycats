@@ -118,18 +118,45 @@ def get_stock_details(selected_ticker, stock_snapshot_df):
         "Ex-Dividend Date": format_value(stock_row["ex_dividend_date"], "date"),
     }
 
+
 def top_20_table(portfolio_df, top_n=10, top_m_institutions=10, fee_per_dollar=None):
     if portfolio_df is None or portfolio_df.empty:
         st.info("No holdings data available.")
         return None
 
-    clicked_date = st.session_state.get("selected_chart_date")
+    clicked_tickers = st.session_state.get("selected_chart_tickers")
+    selected_idx = st.session_state.get("selected_chart_index")
+
+    # default to last clickable point on first load
+    if selected_idx is None:
+        temp_df = portfolio_df.copy()
+        temp_df["date"] = pd.to_datetime(temp_df["date"], errors="coerce")
+        temp_df["trade_date"] = pd.to_datetime(temp_df["trade_date"], errors="coerce")
+
+        clickable_rows = temp_df[temp_df["date"] == temp_df["trade_date"]]
+
+        if not clickable_rows.empty:
+            selected_idx = clickable_rows.index[-1]
+            st.session_state["selected_chart_index"] = selected_idx
+            st.session_state["selected_chart_tickers"] = portfolio_df.iloc[selected_idx]["tickers"]
+
     clicked_tickers = st.session_state.get("selected_chart_tickers")
 
-    # use exact clicked tickers from chart
-    if isinstance(clicked_tickers, list) and len(clicked_tickers) > 0:
+    selected_date_display = None
+    tickers = None
+    selected_row = None
+
+    if (
+        isinstance(clicked_tickers, list)
+        and len(clicked_tickers) > 0
+        and selected_idx is not None
+        and 0 <= selected_idx < len(portfolio_df)
+    ):
+        row = portfolio_df.iloc[selected_idx]
         tickers = clicked_tickers
-        selected_date_display = clicked_date
+        selected_date_display = pd.to_datetime(
+            row["trade_date"], errors="coerce"
+        ).strftime("%Y-%m-%d")
     else:
         df = portfolio_df.copy()
         default_to_date = st.session_state.get("to_date")
@@ -174,32 +201,53 @@ def top_20_table(portfolio_df, top_n=10, top_m_institutions=10, fee_per_dollar=N
 
         tickers = selected_row["tickers"]
 
-        if "quarter" in df.columns:
-            df["quarter"] = pd.to_datetime(df["quarter"], errors="coerce")
-            df = df.dropna(subset=["quarter"])
-            selected_row = df.sort_values("quarter").iloc[-1]
-            selected_date_display = selected_row["quarter"].strftime("%Y-%m-%d")
-        elif "date" in df.columns:
-            df["date"] = pd.to_datetime(df["date"], errors="coerce")
-            df = df.dropna(subset=["date"])
-            selected_row = df.sort_values("date").iloc[-1]
-            selected_date_display = selected_row["date"].strftime("%Y-%m-%d")
-        else:
-            st.info("No date information available.")
-            return None
-
-        tickers = selected_row["tickers"]
-
     if not isinstance(tickers, list) or len(tickers) == 0:
         st.info("No tickers available for this period.")
         return None
 
     tickers = tickers[:top_n]
 
-    st.header(f"Top {top_n} Stocks based on Top {top_m_institutions} Institution Holdings", 
-                 help = "Click on any data point in the Portfolio Performance chart to see the top stocks for that quarter.")
-    st.caption(f"Selected quarter: {selected_date_display}")
-    st.caption(f"Fees per dollar value of transaction ($): {fee_per_dollar}")
+    st.header(
+        f"Top {top_n} Stocks based on Top {top_m_institutions} Institution Holdings",
+        help="Click on any data point in the Portfolio Performance chart to see the top stocks for that quarter."
+    )
+
+    info_df = portfolio_df.copy()
+    info_df["trade_date"] = pd.to_datetime(info_df["trade_date"], errors="coerce")
+    info_df["quarter"] = pd.to_datetime(info_df["quarter"], errors="coerce")
+
+    if selected_idx is not None and 0 <= selected_idx < len(info_df):
+        row = info_df.iloc[selected_idx]
+
+        date_of_trade_display = (
+            row["trade_date"].strftime("%Y-%m-%d")
+            if pd.notna(row["trade_date"]) else "N/A"
+        )
+
+        selected_quarter_display = (
+            row["quarter"].strftime("%Y-%m-%d")
+            if pd.notna(row["quarter"]) else "N/A"
+        )
+
+        portfolio_value_display = (
+            f"${row['portfolio_value']:,.3f}"
+            if "portfolio_value" in info_df.columns and pd.notna(row["portfolio_value"]) else "N/A"
+        )
+
+        transaction_cost_display = (
+            f"${row['transaction_cost']:,.3f}"
+            if "transaction_cost" in info_df.columns and pd.notna(row["transaction_cost"]) else "N/A"
+        )
+    else:
+        date_of_trade_display = selected_date_display if selected_date_display is not None else "N/A"
+        selected_quarter_display = "N/A"
+        portfolio_value_display = "N/A"
+        transaction_cost_display = "N/A"
+
+    st.caption(f"Date of Trade: {date_of_trade_display}")
+    st.caption(f"Selected quarter: {selected_quarter_display}")
+    st.caption(f"Portfolio value: {portfolio_value_display}")
+    st.caption(f"Transaction cost: {transaction_cost_display}")
 
     display_df = pd.DataFrame({
         "Rank": range(1, len(tickers) + 1),
@@ -227,15 +275,10 @@ def top_20_table(portfolio_df, top_n=10, top_m_institutions=10, fee_per_dollar=N
 
 
 def render_stock_details(tickers, stock_snapshot_df):
-    """
-    tickers: list of ticker strings returned by top_20_table()
-    stock_snapshot_df: the loaded parquet DataFrame
-    """
     if not tickers:
         st.info("Select a stock to view more details.")
         return
 
-    # Let the user pick one ticker from the list
     selected_ticker = st.selectbox(
         "Select a stock to view more details:",
         options=tickers,
