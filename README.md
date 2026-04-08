@@ -56,20 +56,19 @@ $env:DEBUG="false"
 > **`DEBUG=false` (Production):** Downloads only the raw zip files required for the pipeline and run all batch_processes.
 
 ### 4. Set environment
-
-> a. Set up and activate virtual environment:
-> # Create virtual environment
+a. Set up and activate virtual environment:
+> 1. Create virtual environment
 ```
 python -m venv venv
 ```
 >
-> # Activate it
+> 2. Activate it
 > # Windows:
 ```
 venv\Scripts\activate
 ```
-> # If you encounter "running scripts is disabled" or > unauthorized access:
-> # Run this in PowerShell, then try again
+> If you encounter "running scripts is disabled" or > unauthorized access:
+> Run this in PowerShell, then try again
 ```
 Set-ExecutionPolicy -Scope CurrentUser     -ExecutionPolicy RemoteSigned
 ```
