@@ -40,6 +40,12 @@ OPENFIGI_API_KEY=your_openfigi_api_key
 OPENFIGI_URL=https://api.openfigi.com/v3/mapping
 ```
 
+> Ensure your `DEBUG` configuration is set to `false`
+```
+DEBUG=false
+```
+
+> **EXPLANATION**
 > **`DEBUG=true` (Development):** Automatically downloads the latest dataset from Kaggle and skip all batch_processes.
 >
 > **`DEBUG=false` (Production):** Downloads only the raw zip files required for the pipeline and run all batch_processes.
