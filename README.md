@@ -57,12 +57,12 @@ $env:DEBUG="false"
 
 ### 4. Set environment
 a. Set up and activate virtual environment:
-> 1. Create virtual environment
+1. Create virtual environment
 ```
 python -m venv venv
 ```
->
-> 2. Activate it
+
+2. Activate it
 > Windows:
 ```
 venv\Scripts\activate
