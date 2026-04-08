@@ -29,6 +29,7 @@ dse3101investmentproject/
 ### 3. Configure the `.env` File
 
 Create a `.env` file at the project root (same level as this `README.md`) with the following contents:
+(.env secrets can be found in our dse3101 technical documentation, Annex E)
 
 ```dotenv
 # App config
