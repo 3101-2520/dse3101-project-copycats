@@ -40,9 +40,13 @@ OPENFIGI_API_KEY=your_openfigi_api_key
 OPENFIGI_URL=https://api.openfigi.com/v3/mapping
 ```
 
-> Ensure your `DEBUG` configuration is set to `false`
+> Ensure your `DEBUG` configuration is set to `false` in .env file:
 ```
 DEBUG=false
+```
+> Or run this in terminal:
+```
+$env:DEBUG="false"
 ```
 
 > **EXPLANATION:**
@@ -52,21 +56,27 @@ DEBUG=false
 > **`DEBUG=false` (Production):** Downloads only the raw zip files required for the pipeline and run all batch_processes.
 
 ### 4. Set environment
+a. Set up and activate virtual environment:
+1. Create virtual environment
+```
+python -m venv venv
+```
 
-> a. Set up and activate virtual environment:
-> ```bash
-> # Create virtual environment
-> python -m venv venv
+2. Activate it
+> Windows:
+```
+venv\Scripts\activate
+```
+> If you encounter "running scripts is disabled" or > unauthorized access:
+> Run this in PowerShell, then try again
+```
+Set-ExecutionPolicy -Scope CurrentUser     -ExecutionPolicy RemoteSigned
+```
 >
-> # Activate it
-> # Windows:
-> venv\Scripts\activate
-> # If you encounter "running scripts is disabled" or > unauthorized access:
-> # Run this in PowerShell, then try again
-> Set-ExecutionPolicy -Scope CurrentUser     -ExecutionPolicy RemoteSigned
-> # Mac/Linux:
-> source venv/bin/activate
-> ```
+> Mac/Linux:
+```
+source venv/bin/activate
+```
 
 ### 5. Install Dependencies
 
@@ -83,7 +93,6 @@ Run Backend.batch_run_all_backend script to run all the batch_processes required
 **Run:**
 
 ```bash
-$env:DEBUG="false"
 python -m Backend.batch_run_all_backend
 ```
 
