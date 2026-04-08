@@ -6,6 +6,7 @@ import time
 from Backend.transform.stock_market_price import main as stock_price_main
 from Backend.transform.consolidate_stock_price import main as consolidate_main
 from Backend.transform.build_spy_price_data import main as build_spy_price_data_main
+from Backend.transform.get_ticker_snapshot import main as get_ticker_snapshot_main
 
 from config import DEBUG
 
@@ -24,6 +25,9 @@ def main():
 
         # Step 3: Build SPY price data for backtesting
         build_spy_price_data_main()
+
+        # Step 4: Get ticker snapshot for the latest date
+        get_ticker_snapshot_main()
         
         end_time = time.time()
         elapsed_time = end_time - start_time

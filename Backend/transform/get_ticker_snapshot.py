@@ -3,10 +3,10 @@ import yfinance as yf
 import numpy as np
 import time
 from datetime import datetime
-from config import DATA_DIR
+from config import PRICES_DS_ROOT, DATA_DIR
 
 # --- Load original ticker list ---
-df = pd.read_parquet(DATA_DIR/"final_files"/"stock_prices_all.parquet")
+df = pd.read_parquet(PRICES_DS_ROOT/"stock_prices_all.parquet")
 all_tickers = df["ticker"].unique().tolist()
 print(f"Found {len(all_tickers)} unique tickers. Starting fetch...\n")
 
