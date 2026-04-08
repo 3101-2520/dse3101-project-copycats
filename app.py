@@ -11,7 +11,7 @@ import sys
 import pandas as pd
 import streamlit as st
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
+ROOT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT_DIR))
 
 from Backend.backtesting.batch_process_rank_stocks import main
@@ -23,7 +23,7 @@ from Frontend.components.portfolio_performance import portfolio_performance
 
 
 STOCK_SNAPSHOT_PATH = ROOT_DIR / "Datasets" / "final_files" / "stock_snapshot.parquet"
-SPY_PATH = ROOT_DIR / "Datasets" / "final_files" / "spy_prices_2013-01-01_to_2026-03-31.parquet"
+SPY_PATH = ROOT_DIR / "Datasets" / "final_files" / "spy_prices"
 
 stock_snapshot_df = pd.read_parquet(STOCK_SNAPSHOT_PATH) if STOCK_SNAPSHOT_PATH.exists() else None
 spy_df = pd.read_parquet(SPY_PATH) if SPY_PATH.exists() else None
